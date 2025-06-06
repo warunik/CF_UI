@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counterfactual Explanation System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- <link rel="stylesheet" href="frontend/static/css/style.css"> -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Counterfactual Explanation System</h1>
+            <p class="subtitle">Generate and explore counterfactual explanations for machine learning predictions</p>
+        </header>
+
+        <!-- Configuration Panel -->
+        <div class="card-body">
+            <div class="form-grid">
+                <!-- Dataset Dropdown -->
+                <div class="form-group">
+                    <label for="dataset-select">Dataset</label>
+                    <select id="dataset-select">
+                        <option value="">Select a dataset...</option>
+                        {% for dataset in datasets %}
+                        <option value="{{ dataset }}">{{ dataset|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- ML Model Dropdown -->
+                <div class="form-group">
+                    <label for="model-select">ML Model</label>
+                    <select id="model-select">
+                        <option value="">Select a model...</option>
+                        {% for model in models %}
+                        <option value="{{ model }}">{{ model|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- CF Method Dropdown -->
+                <div class="form-group">
+                    <label for="cf-method-select">CF Method</label>
+                    <select id="cf-method-select">
+                        <option value="">Select a method...</option>
+                        {% for method in cf_methods %}
+                        <option value="{{ method }}">{{ method|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button id="start-btn" class="btn" disabled>
+                    Proceed to Feature Input
+                </button>
+            </div>
+        </div>
+
+        <!-- Data Collection Section -->
+        <div id="data-collection" class="card d-none">
+            <div class="card-header">
+                <h2>Data Collection</h2>
+            </div>
+            <div class="card-body">
+                <div class="progress">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div id="question-container" class="question-container">
+                    <div class="question-alert">
+                        <span id="question-text">Please provide the following information:</span>
+                    </div>
+                    <div class="mb-3">
+                        <label id="feature-name" class="form-label">Age</label>
+                        <input type="text" id="answer-input" placeholder="Enter value...">
+                        <div class="form-text" id="feature-type">Numeric value between 18-100</div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button id="back-btn" class="btn btn-outline">
+                        ← Back
+                    </button>
+                    <button id="submit-btn" class="btn btn-success">
+                        Submit Answer →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="card d-none">
+            <div class="card-header">
+                <h2>Explanation</h2>
+            </div>
+            <div class="card-body">
+                <div class="results-grid">
+                    <div class="result-section">
+                        <h3>User Data</h3>
+                        <div id="patient-data"></div>
+                    </div>
+                    <div class="result-section">
+                        <h3>Counterfactual Changes</h3>
+                        <div id="counterfactual-changes"></div>
+                    </div>
+                </div>
+                
+                <h3 class="explanation-box">Explanation</h3>
+                <div id="explanation" class="alert alert-light border p-3"></div>
+                
+                <div class="text-center">
+                    <button id="restart-btn" class="btn">
+                        <i class="fas fa-redo me-2"></i>Back to Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loading" class="card d-none">
+            <div class="loading" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Processing your request...</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- <script src="static/jsscript.js"></script> -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
