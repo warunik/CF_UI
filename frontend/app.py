@@ -6,9 +6,11 @@ from flask import Flask, render_template, request, jsonify
 from backend.app.config import DATASETS, ML_MODELS, CF_METHODS
 from backend.app.chains import create_data_collection_chain, create_explanation_chain
 from backend.app.utils import load_dataset, format_counterfactual
+from backend.app.model_manager import ModelManager
 import uuid
 
 app = Flask(__name__)
+model_manager = ModelManager()
 sessions = {}
 collection_chain = create_data_collection_chain()
 explanation_chain = create_explanation_chain()
@@ -37,10 +39,21 @@ def start_session():
         dataset_config["df"] = load_dataset(dataset_config)
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
+    
+    model_choice = request.json['model']
+    if model_choice not in ML_MODELS:
+        return jsonify({"error": "Invalid model selection"}), 400
+    
+    cf_method_choice = request.json['cf_method']
+    if cf_method_choice not in CF_METHODS:
+        return jsonify({"error": "Invalid counterfactual method selection"}), 400
+    
 
     sessions[session_id] = {
         "dataset_config": dataset_config,
         "collected_data": [],
+        'model': model_choice,
+        'cf_method': cf_method_choice,
         "current_index": 0
     }
 
@@ -79,12 +92,12 @@ def submit_answer():
         return get_next_question(session_id)
     else:
         # Data collection complete
-        patient_data = session["collected_data"]
+        user_data = session["collected_data"]
         del sessions[session_id]
         
         # Simulate counterfactual processing
         counterfactual_result = {
-            "patient_data": patient_data,
+            "user_data": user_data,
             "original_prediction": 1,
             "required_changes": [
                 {"feature": "chol", "current": 280, "new": 200},
@@ -100,7 +113,7 @@ def submit_answer():
         
         return jsonify({
             "status": "complete",
-            "patient_data": patient_data,
+            "user_data": user_data,
             "explanation": explanation.strip()
         })
 

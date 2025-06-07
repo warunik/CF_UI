@@ -38,15 +38,18 @@ DATASETS = {
 }
 
 ML_MODELS = {
+    "mlp": "Multi-layer Perceptron",
     "random_forest": "Random Forest",
     "logistic_regression": "Logistic Regression",
-    "gradient_boosting": "Gradient Boosting",
-    "neural_network": "Neural Network"
+    "xgboost": "XGBoost",
+    "decision_tree": "Decision Tree",
 }
 
 CF_METHODS = {
     "dice": "DiCE (Diverse Counterfactual Explanations)",
     "wachter": "Wachter's Method",
     "cem": "CEM (Contrastive Explanation Method)",
-    "face": "FACE (Feasible and Actionable Counterfactual Explanations)"
+    "face": "FACE (Feasible and Actionable Counterfactual Explanations)",
+    "FOCUS": "FOCUS (Feature-wise Counterfactual Explanations)",
+    "CCHVAE": "CCHVAE (Counterfactual Explanations with Variational Autoencoders)",
 }

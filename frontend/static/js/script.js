@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submit-btn');
     const backBtn = document.getElementById('back-btn');
     const progressBar = document.getElementById('progress-bar');
-    const patientDataDiv = document.getElementById('patient-data');
+    const userDataDiv = document.getElementById('user-data');
     const counterfactualChangesDiv = document.getElementById('counterfactual-changes');
     const explanationDiv = document.getElementById('explanation');
     const restartBtn = document.getElementById('restart-btn');
@@ -173,20 +173,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display results and explanation
     function displayResults(data) {
-        // Display patient data
+        // Display user data
         const datasetConfig = DATASETS[currentDataset];
         const features = Object.keys(datasetConfig.feature_types);
         
-        patientDataDiv.innerHTML = '';
+        userDataDiv.innerHTML = '';
         features.forEach((feature, index) => {
-            const value = data.patient_data[index];
+            const value = data.user_data[index];
             const item = document.createElement('div');
             item.className = 'feature-item';
             item.innerHTML = `
                 <span class="feature-name">${feature}:</span>
                 <span class="feature-value">${value}</span>
             `;
-            patientDataDiv.appendChild(item);
+            userDataDiv.appendChild(item);
         });
         
         // Display counterfactual changes

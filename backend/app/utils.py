@@ -15,9 +15,9 @@ def format_counterfactual(counterfactual, dataset_config):
         for change in counterfactual["required_changes"]
     ])
     
-    patient_data_str = "\n".join([
+    user_data_str = "\n".join([
         f"- {feature}: {value}" 
-        for feature, value in zip(dataset_config["feature_types"].keys(), counterfactual["patient_data"])
+        for feature, value in zip(dataset_config["feature_types"].keys(), counterfactual["user_data"])
     ])
     
     class_labels = dataset_config["class_labels"]
@@ -29,6 +29,6 @@ def format_counterfactual(counterfactual, dataset_config):
         "new_class": class_labels[counterfactual["new_prediction"]],
         "confidence": counterfactual["confidence"],
         "changes": changes,
-        "patient_data_str": patient_data_str,
+        "user_data_str": user_data_str,
         "dataset_name": dataset_config["name"]
     }
