@@ -41,6 +41,7 @@ DATASETS = {
         "name": "Income Prediction",
         "path": "backend/data/adult.csv",
         "target_column": " class",
+        "drop_columns": ["fnlwgt", "education-num", "native-country"],
         "class_labels": {0: "<=50K", 1: ">50K"},
         "feature_types": {
             "age": "numeric",
@@ -81,6 +82,18 @@ DATASETS = {
         "name": "Recidivism Prediction",
         "path": "backend/data/compas.csv",
         "target_column": "is_recid",
+        "drop_columns": [
+            'id', 'name', 'first', 'last', 
+            'compas_screening_date', 'dob', 'c_jail_in', 'c_jail_out',
+            'c_case_number', 'c_offense_date', 'c_arrest_date',
+            'r_case_number', 'r_charge_degree', 'r_offense_date', 'r_charge_desc',
+            'r_jail_in', 'r_jail_out', 'vr_case_number', 'vr_offense_date',
+            'vr_charge_desc', 'type_of_assessment', 'decile_score.1',
+            'score_text', 'screening_date', 'v_type_of_assessment',
+            'v_decile_score', 'v_score_text', 'v_screening_date',
+            'in_custody', 'out_custody', 'priors_count.1', 'start', 'end',
+            'event', 'decile_score'
+        ],
         "class_labels": {0: "No Recidivism", 1: "Recidivism"},
         "feature_types": {
             "id": "numeric",

@@ -1,0 +1,35 @@
+dataset,model,accuracy,precision,recall,f1,error
+Heart Disease,Multi-layer Perceptron,0.8344155844155844,0.8418600764759512,0.8344155844155844,0.8342322593738151,
+Heart Disease,Random Forest,0.9642857142857143,0.9667879890809828,0.9642857142857143,0.9643064260784819,
+Heart Disease,Logistic Regression,0.8311688311688312,0.8422404374011762,0.8311688311688312,0.8307056161937764,
+Heart Disease,XGBoost,0.9642857142857143,0.9667879890809828,0.9642857142857143,0.9643064260784819,
+Heart Disease,Decision Tree,0.974025974025974,0.9753752740765728,0.974025974025974,0.9740435092333826,
+Diabetes Prediction,Multi-layer Perceptron,0.6926406926406926,0.6987012987012987,0.6926406926406926,0.6950395945517897,
+Diabetes Prediction,Random Forest,0.7619047619047619,0.763938944244223,0.7619047619047619,0.7463222908478384,
+Diabetes Prediction,Logistic Regression,0.7878787878787878,0.78914788404343,0.7878787878787878,0.7776486836047964,
+Diabetes Prediction,XGBoost,0.7402597402597403,0.7339412084921068,0.7402597402597403,0.7309817055039984,
+Diabetes Prediction,Decision Tree,0.7012987012987013,0.7005491252479205,0.7012987012987013,0.7009106594207579,
+Income Prediction,Multi-layer Perceptron,0.23461971542634866,0.8204866674899431,0.23461971542634866,0.08931312722884731,
+Income Prediction,Random Forest,0.8575084450813799,0.8521080759488228,0.8575084450813799,0.8535440769930147,
+Income Prediction,Logistic Regression,0.8462483365748797,0.8386175306705284,0.8462483365748797,0.8398676316623711,
+Income Prediction,XGBoost,0.8678472719828028,0.8633359095758987,0.8678472719828028,0.8645049956250763,
+Income Prediction,Decision Tree,0.8176886068174839,0.8201658954794292,0.8176886068174839,0.8188537991099614,
+Credit Approval,Multi-layer Perceptron,,,,,"Input X contains NaN.
+MLPClassifier does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values"
+Credit Approval,Random Forest,0.9350222222222222,0.9166308971747524,0.9350222222222222,0.9190460577153892,
+Credit Approval,Logistic Regression,,,,,"Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values"
+Credit Approval,XGBoost,0.9349111111111111,0.9181192944966111,0.9349111111111111,0.9215228148730183,
+Credit Approval,Decision Tree,0.8966444444444445,0.9019804354424839,0.8966444444444445,0.899244791587605,
+Recidivism Prediction,Multi-layer Perceptron,,,,,"Input X contains NaN.
+MLPClassifier does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values"
+Recidivism Prediction,Random Forest,0.9875288683602771,0.9877456691539894,0.9875288683602771,0.9875256843691196,
+Recidivism Prediction,Logistic Regression,,,,,"Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values"
+Recidivism Prediction,XGBoost,0.9856812933025404,0.9858276915989098,0.9856812933025404,0.9856785059213854,
+Recidivism Prediction,Decision Tree,0.981986143187067,0.9820174686461767,0.981986143187067,0.9819848284139203,
+German Credit Risk,Multi-layer Perceptron,0.7066666666666667,0.7938738738738739,0.7066666666666667,0.5978306878306877,
+German Credit Risk,Random Forest,0.7533333333333333,0.7476666666666667,0.7533333333333333,0.7184511784511785,
+German Credit Risk,Logistic Regression,0.76,0.7479859484777518,0.76,0.7403683329347046,
+German Credit Risk,XGBoost,0.75,0.7380527707731102,0.75,0.7399025705100306,
+German Credit Risk,Decision Tree,0.7033333333333334,0.6989649776050942,0.7033333333333334,0.7009516226772294,
