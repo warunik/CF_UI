@@ -31,7 +31,7 @@ class ModelManager:
         if path.exists():
             with open(path, "rb") as f:
                 model = pickle.load(f)
-            print(f"Loaded saved {model_type} for '{dataset_name}'.")
+            #print(f"Loaded saved {model_type} for '{dataset_name}'.")
             return model
         return None
 
@@ -144,22 +144,12 @@ class ModelManager:
         return model
     
     def predict(self, dataset_name, model_type, input_data):
-        """
-        Predict class for input data (single instance or small dataset)
-        
-        Args:
-            dataset_name: Name of the dataset
-            model_type: Type of model ('mlp', 'random_forest', etc.)
-            input_data: DataFrame, dict, or list of dicts with input features
-            
-        Returns:
-            predictions: Array of predicted class labels (original string labels)
-        """
         # Load dataset and model
         dataset = self.load_dataset(dataset_name)
         model = self.get_model(dataset_name, model_type)
+        config = self.datasets_config[dataset_name]
         
-        # Convert input to DataFrame if needed
+        # Convert input to DataFrame
         if isinstance(input_data, dict):
             input_df = pd.DataFrame([input_data])
         elif isinstance(input_data, list):
@@ -167,51 +157,83 @@ class ModelManager:
         else:
             input_df = input_data.copy()
         
-        config = self.datasets_config[dataset_name]
+        # Convert data types based on config
+        for col in input_df.columns:
+            if col in config['feature_types']:
+                if config['feature_types'][col] == 'numeric':
+                    input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
+                elif config['feature_types'][col] == 'categorical':
+                    input_df[col] = input_df[col].astype(str)
         
-        # 1. Drop unwanted columns
+        # Drop unwanted columns
         if 'drop_columns' in config:
             cols_to_drop = [col for col in config['drop_columns'] if col in input_df.columns]
             input_df = input_df.drop(columns=cols_to_drop)
         
-        # 2. Drop target column if present
+        # Drop target column if present
         if config['target_column'] in input_df.columns:
             input_df = input_df.drop(columns=[config['target_column']])
         
-        # 3. Ensure all base columns are present
-        # (Add missing columns with NaN, will be handled in one-hot encoding)
+        # Ensure all base columns are present
         for col in dataset['base_columns']:
             if col not in input_df.columns:
                 input_df[col] = np.nan
         
-        # 4. One-hot encode categorical features (same as training)
+        # One-hot encode categorical features
         categorical_cols = [col for col in dataset['categorical_cols'] if col in input_df.columns]
         if categorical_cols:
             input_df = pd.get_dummies(input_df, columns=categorical_cols, drop_first=True)
         
-        # 5. Align columns with training data (add missing, remove extra)
-        # Fill new columns (from one-hot) with 0, preserve existing values
+        # Align columns with training data
         aligned_df = pd.DataFrame(columns=dataset['feature_names'])
         for col in aligned_df.columns:
             if col in input_df.columns:
                 aligned_df[col] = input_df[col]
             else:
-                aligned_df[col] = 0  # Add missing feature columns with 0
+                aligned_df[col] = 0
         
-        # 6. Convert to numpy array
+        # Convert to numpy array
         input_processed = aligned_df.values
         
-        # 7. Apply imputation if needed (for MLP/Logistic Regression)
-        key = (dataset_name, model_type)
-        if key in self.imputers:
-            input_processed = self.imputers[key].transform(input_processed)
+        # Debug: Print processed features
+        # print("Processed Features:")
+        # print(aligned_df)
         
-        # 8. Make predictions
+        # Apply imputation
+        key = (dataset_name, model_type)
+        if key not in self.imputers:
+            strategy = 'most_frequent'  # Default for all models
+            if model_type == "mlp":
+                strategy = 'mean'
+            self.imputers[key] = SimpleImputer(strategy=strategy)
+            # Fit on training data
+            X_train = dataset['X_train']
+            self.imputers[key].fit(X_train)
+        
+        input_processed = self.imputers[key].transform(input_processed)
+        
+        # Make predictions
         preds = model.predict(input_processed)
         
-        # 9. Convert numeric predictions back to original labels
-        le = dataset['label_encoder']
-        return le.inverse_transform(preds)
+        # Debug: Print probabilities
+        # print(f"Prediction probabilities: {model.predict_proba(input_processed)}")
+        
+        # Get config reference
+        config = self.datasets_config[dataset_name]
+        
+        # Convert numerical predictions to class names
+        if 'class_labels' in config:
+            # Map numerical predictions to string labels
+            class_labels = config['class_labels']
+            # Ensure predictions are integers for mapping
+            preds = preds.astype(int)
+            # Map each prediction to its class name
+            class_names = [class_labels[pred] for pred in preds]
+            return class_names
+        else:
+            # Fallback to numerical values if no class_labels mapping exists
+            le = dataset['label_encoder']
+            return le.inverse_transform(preds)
 
     # def generate_counterfactual(self, model, dataset, instance, method="foil_trees"):
     #     """Generate counterfactual explanation"""

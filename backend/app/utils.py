@@ -24,9 +24,9 @@ def format_counterfactual(counterfactual, dataset_config):
     
     return {
         "original_prediction": counterfactual["original_prediction"],
-        "original_class": class_labels[counterfactual["original_prediction"]],
+        "original_class": class_labels.get(counterfactual["original_prediction"], ""),
         "new_prediction": counterfactual["new_prediction"],
-        "new_class": class_labels[counterfactual["new_prediction"]],
+        "new_class": class_labels.get(counterfactual["new_prediction"], ""),
         "confidence": counterfactual["confidence"],
         "changes": changes,
         "user_data_str": user_data_str,

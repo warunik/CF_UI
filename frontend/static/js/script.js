@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submit-btn');
     const backBtn = document.getElementById('back-btn');
     const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
     const userDataDiv = document.getElementById('user-data');
     const counterfactualChangesDiv = document.getElementById('counterfactual-changes');
     const explanationDiv = document.getElementById('explanation');
@@ -107,7 +108,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const total = parseInt(progress[1]);
         const progressPercent = (current / total) * 100;
         progressBar.style.width = `${progressPercent}%`;
-        progressBar.textContent = `${current} of ${total}`;
+
+        document.querySelector('.progress-text span:first-child').textContent = `Getting started`;
+        document.querySelector('.progress-text span:last-child').textContent = `${Math.round(progressPercent)}%`;
+        progressText.textContent = `Question ${current} of ${total}`;  // Header text
         
         // Clear input and focus
         answerInput.value = '';

@@ -7,18 +7,18 @@ DATASETS = {
         "class_labels": {0: "No Heart Disease", 1: "Heart Disease"},
         "feature_types": {
             "age": "numeric",
-            "sex": "categorical",
-            "cp": "categorical",
+            "sex": "numeric",
+            "cp": "numeric",
             "trestbps": "numeric",
             "chol": "numeric",
-            "fbs": "categorical",
-            "restecg": "categorical",
+            "fbs": "numeric",
+            "restecg": "numeric",
             "thalach": "numeric",
-            "exang": "categorical",
+            "exang": "numeric",
             "oldpeak": "numeric",
-            "slope": "categorical",
+            "slope": "numeric",
             "ca": "numeric",
-            "thal": "categorical"
+            "thal": "numeric"
         }
     },
     "diabetes": {

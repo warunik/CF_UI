@@ -10,7 +10,7 @@ from backend.app.model_manager import ModelManager
 import uuid
 
 app = Flask(__name__)
-model_manager = ModelManager()
+model_manager = ModelManager(datasets_config=DATASETS)
 sessions = {}
 collection_chain = create_data_collection_chain()
 explanation_chain = create_explanation_chain()
@@ -28,33 +28,35 @@ def index():
 
 @app.route('/start_session', methods=['POST'])
 def start_session():
-    dataset_choice = request.json['dataset']
-    if dataset_choice not in DATASETS:
-        return jsonify({"error": "Invalid dataset selection"}), 400
+    # Extract all parameters from request FIRST
+    dataset_choice = request.json.get('dataset')
+    model_choice = request.json.get('model')
+    cf_method_choice = request.json.get('cf_method')
     
+    # Validate all inputs
+    if not dataset_choice or dataset_choice not in DATASETS:
+        return jsonify({"error": "Invalid dataset selection"}), 400
+    if not model_choice or model_choice not in ML_MODELS:
+        return jsonify({"error": "Invalid model selection"}), 400
+    if not cf_method_choice or cf_method_choice not in CF_METHODS:
+        return jsonify({"error": "Invalid counterfactual method selection"}), 400
+
     session_id = str(uuid.uuid4())
     dataset_config = DATASETS[dataset_choice].copy()
-    
+
     try:
         dataset_config["df"] = load_dataset(dataset_config)
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
-    
-    model_choice = request.json['model']
-    if model_choice not in ML_MODELS:
-        return jsonify({"error": "Invalid model selection"}), 400
-    
-    cf_method_choice = request.json['cf_method']
-    if cf_method_choice not in CF_METHODS:
-        return jsonify({"error": "Invalid counterfactual method selection"}), 400
-    
 
+    # Create session with all validated parameters
     sessions[session_id] = {
         "dataset_config": dataset_config,
         "collected_data": [],
-        'model': model_choice,
-        'cf_method': cf_method_choice,
-        "current_index": 0
+        'model_choice': model_choice,  # Changed key to match usage in submit_answer
+        'cf_method_choice': cf_method_choice,  # Changed key to match usage in submit_answer
+        "current_index": 0,
+        "dataset_choice": dataset_choice  # Added this for submit_answer
     }
 
     return get_next_question(session_id)
@@ -93,7 +95,20 @@ def submit_answer():
     else:
         # Data collection complete
         user_data = session["collected_data"]
-        del sessions[session_id]
+        features = list(dataset_config["feature_types"].keys())
+        
+        # Convert to dictionary format for prediction
+        user_data_dict = {feature: value for feature, value in zip(features, user_data)}
+        
+        try:
+            prediction = model_manager.predict(
+                dataset_name=session["dataset_choice"],
+                model_type=session["model_choice"],  # Fixed key name
+                input_data=user_data_dict
+            )[0]
+            
+        except Exception as e:
+            return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
         
         # Simulate counterfactual processing
         counterfactual_result = {
@@ -110,6 +125,9 @@ def submit_answer():
         # Generate explanation
         formatted_cf = format_counterfactual(counterfactual_result, dataset_config)
         explanation = explanation_chain.invoke(formatted_cf)
+
+        # Clean up session
+        del sessions[session_id]
         
         return jsonify({
             "status": "complete",
