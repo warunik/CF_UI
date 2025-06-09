@@ -118,68 +118,131 @@ document.addEventListener('DOMContentLoaded', function() {
         answerInput.focus();
     }
     
+    //Submit answer and get next question
+    // function submitAnswer() {
+    //     const answer = answerInput.value.trim();
+    //     if (!answer) {
+    //         alert('Please enter a value');
+    //         return;
+    //     }
+        
+    //     showLoading(true);
+        
+    //     fetch('/submit_answer', {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify({
+    //             session_id: currentSession,
+    //             answer: answer
+    //         })
+    //     })
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         if (data.error) {
+    //             alert(data.error);
+    //             showLoading(false);
+    //             return;
+    //         }
+            
+    //         if (data.status === 'complete') {
+    //             // Show results
+    //             displayResults(data);
+    //             dataCollectionSection.classList.add('d-none');
+    //             resultsSection.classList.remove('d-none');
+    //         } else {
+    //             // Show next question
+    //             displayQuestion(data);
+    //         }
+            
+    //         showLoading(false);
+    //     })
+    //     .catch(error => {
+    //         console.error('Error:', error);
+    //         alert('Failed to submit answer. Please try again.');
+    //         showLoading(false);
+    //     });
+    // }
+    
+    // // Go back to previous question
+    // function goBack() {
+    //     if (collectedData.length > 0) {
+    //         collectedData.pop();
+    //         currentSession.currentIndex--;
+    //         // In a real app, we would need to implement state management for going back
+    //         alert('Going back to previous question is not fully implemented in this demo');
+    //     }
+    // }
+
     // Submit answer and get next question
-    function submitAnswer() {
-        const answer = answerInput.value.trim();
-        if (!answer) {
-            alert('Please enter a value');
+function submitAnswer() {
+    const answer = answerInput.value.trim();
+    if (!answer) {
+        alert('Please enter a value');
+        return;
+    }
+    
+    // Disable submit button to prevent double submission
+    submitBtn.disabled = true;
+    showLoading(true);
+    
+    fetch('/submit_answer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            session_id: currentSession,
+            answer: answer
+        })
+    })
+    .then(response => {
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            showLoading(false);
+            submitBtn.disabled = false;
             return;
         }
         
-        showLoading(true);
-        
-        fetch('/submit_answer', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                session_id: currentSession,
-                answer: answer
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert(data.error);
-                showLoading(false);
-                return;
-            }
-            
-            if (data.status === 'complete') {
-                // Show results
-                displayResults(data);
-                dataCollectionSection.classList.add('d-none');
-                resultsSection.classList.remove('d-none');
-            } else {
-                // Show next question
-                displayQuestion(data);
-            }
-            
-            showLoading(false);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to submit answer. Please try again.');
-            showLoading(false);
-        });
-    }
-    
-    // Go back to previous question
-    function goBack() {
-        if (collectedData.length > 0) {
-            collectedData.pop();
-            currentSession.currentIndex--;
-            // In a real app, we would need to implement state management for going back
-            alert('Going back to previous question is not fully implemented in this demo');
+        if (data.status === 'complete') {
+            // Show results
+            displayResults(data);
+            dataCollectionSection.classList.add('d-none');
+            resultsSection.classList.remove('d-none');
+        } else {
+            // Show next question
+            displayQuestion(data);
         }
-    }
+        
+        showLoading(false);
+        submitBtn.disabled = false;
+    })
+    .catch(error => {
+        console.error('Error details:', error);
+        alert(`Failed to submit answer: ${error.message}. Please try again.`);
+        showLoading(false);
+        submitBtn.disabled = false;
+    });
+}
     
     // Display results and explanation
     function displayResults(data) {
         // Display user data
         const datasetConfig = DATASETS[currentDataset];
         const features = Object.keys(datasetConfig.feature_types);
+
+        document.getElementById('original-prediction').textContent =
+            data.original_prediction_label;
+        document.getElementById('counterfactual-prediction').textContent =
+            data.new_prediction_label;
         
         userDataDiv.innerHTML = '';
         features.forEach((feature, index) => {
@@ -194,16 +257,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Display counterfactual changes
-        counterfactualChangesDiv.innerHTML = `
+        counterfactualChangesDiv.innerHTML =
+        data.required_changes.map(c => `
             <div class="change-item">
-                <span>Cholesterol (chol):</span>
-                <span class="change-value">280 → 200</span>
+            <span>${c.feature}:</span>
+            <span class="change-value">${c.current} → ${c.new}</span>
             </div>
-            <div class="change-item">
-                <span>Resting BP (trestbps):</span>
-                <span class="change-value">150 → 120</span>
-            </div>
-        `;
+        `).join('');
+
         
         // Display explanation
         explanationDiv.innerHTML = `<p>${data.explanation.replace(/\n/g, '<br>')}</p>`;
@@ -232,39 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Initialize the app
-    initApp();
-    
-    // Global variable for datasets (for demo purposes)
-    const DATASETS = {
-        heart: {
-            feature_types: {
-                "age": "numeric",
-                "sex": "categorical",
-                "cp": "categorical",
-                "trestbps": "numeric",
-                "chol": "numeric",
-                "fbs": "categorical",
-                "restecg": "categorical",
-                "thalach": "numeric",
-                "exang": "categorical",
-                "oldpeak": "numeric",
-                "slope": "categorical",
-                "ca": "numeric",
-                "thal": "categorical"
-            }
-        },
-        diabetes: {
-            feature_types: {
-                "pregnancies": "numeric",
-                "glucose": "numeric",
-                "blood_pressure": "numeric",
-                "skin_thickness": "numeric",
-                "insulin": "numeric",
-                "bmi": "numeric",
-                "diabetes_pedigree": "numeric",
-                "age": "numeric"
-            }
-        }
-    };
-});
+        // Initialize the app
+        initApp();
+    });

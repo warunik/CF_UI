@@ -143,6 +143,21 @@ class ModelManager:
         self.models[key] = model
         return model
     
+    def return_model(self, dataset_name, model_type):
+        """Return the model without loading it if already loaded."""
+        key = (dataset_name, model_type)
+        if key in self.models:
+            return self.models[key]
+        else:
+            raise ValueError(f"Model for {dataset_name} with type {model_type} not found.")
+        
+    def get_X_train(self, dataset_name):
+        """Get the training data for a specific dataset."""
+        if dataset_name in self.datasets:
+            return self.datasets[dataset_name]['X_train']
+        else:
+            raise ValueError(f"Dataset '{dataset_name}' not found.")
+    
     def predict(self, dataset_name, model_type, input_data):
         # Load dataset and model
         dataset = self.load_dataset(dataset_name)
