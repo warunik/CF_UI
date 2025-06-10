@@ -498,15 +498,21 @@ class DomainMapperTabular(DomainMapper):
         # Combine into final output
         explanation_table = "\n".join(table)
         
+        # if factuals is None:
+        #     return explanation_table
+        # else:
+        #     return (
+        #         explanation_table,
+        #         "\nAdditional Factual Explanation:\n" +
+        #         self.rule_to_str(factuals, remove_last=True)
+        #     )
+        
         if factuals is None:
-            return explanation_table
+            return self.rule_to_str(counterfactuals) or "N/A"
         else:
             return (
-                explanation_table,
-                "\nAdditional Factual Explanation:\n" +
-                self.rule_to_str(factuals, remove_last=True)
+               self.rule_to_str(counterfactuals) or "N/A"
             )
-        
 
     def counterfactual_list(self,
             fact,

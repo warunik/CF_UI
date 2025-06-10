@@ -7,47 +7,45 @@ from model_manager import ModelManager
 from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
 import numpy as np
 
+name_data = "diabetes"
+name_model = "random_forest"
+
 # Initialize
 model_manager = ModelManager(datasets_config=DATASETS)
 
 # Sample input for "heart" dataset
 input_data = {
-    "age": 45,
-    "sex": 0,
-    "cp": 2,
-    "trestbps": 112,
-    "chol": 149,
-    "fbs": 0,
-    "restecg": 1,
-    "thalach": 125,
-    "exang": 0,
-    "oldpeak": 1.6,
-    "slope": 1,
-    "ca": 0,
-    "thal": 0
+    "Pregnancies": 3,
+    "Glucose": 110,
+    "BloodPressure": 92,
+    "SkinThickness": 0,
+    "Insulin": 2,
+    "BMI": 34,
+    "DiabetesPedigreeFunction": 0.191,
+    "Age": 40,
 }
 
-feature_names = list(DATASETS["heart"]["feature_types"].keys())
+feature_names = list(DATASETS[name_data]["feature_types"].keys())
 input_array = np.array([input_data[feature] for feature in feature_names])
 
 # Get prediction
 prediction = model_manager.predict(
-    dataset_name="heart",
-    model_type="mlp",
+    dataset_name=name_data,
+    model_type=name_model,
     input_data=input_data
 )[0]
 
 print(f"Prediction for input data: {prediction}")
 
 # Get the heart dataset config
-heart_config = DATASETS["heart"]
+heart_config = DATASETS[name_data]
 
 # Extract feature names and class labels
 feature_names = list(heart_config["feature_types"].keys())
 class_labels = list(heart_config["class_labels"].values())
 
 dm = domain_mappers.DomainMapperTabular(
-    train_data=model_manager.get_X_train(dataset_name="heart"),
+    train_data=model_manager.get_X_train(dataset_name=name_data),
     feature_names=feature_names,
     contrast_names=class_labels  # Use the class labels
 )
@@ -55,8 +53,8 @@ dm = domain_mappers.DomainMapperTabular(
 exp = contrastive_explanation.ContrastiveExplanation(dm)
 
 model = model_manager.get_model(
-    dataset_name="heart",
-    model_type="mlp"
+    dataset_name=name_data,
+    model_type=name_model
 )
 
 print("\n", exp.explain_instance_domain(model.predict_proba, input_array), "\n")

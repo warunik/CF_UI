@@ -195,4 +195,5 @@ CF_METHODS = {
     "face": "FACE (Feasible and Actionable Counterfactual Explanations)",
     "FOCUS": "FOCUS (Feature-wise Counterfactual Explanations)",
     "CCHVAE": "CCHVAE (Counterfactual Explanations with Variational Autoencoders)",
+    "foiltrees": "Foil Trees",
 }

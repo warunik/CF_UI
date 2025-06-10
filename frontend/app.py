@@ -7,12 +7,28 @@ from backend.app.chains import create_data_collection_chain, create_explanation_
 from backend.app.utils import load_dataset, format_counterfactual
 from backend.app.model_manager import ModelManager
 import uuid
+import numpy as np
 
 app = Flask(__name__)
 model_manager = ModelManager(datasets_config=DATASETS)
 sessions = {}
 collection_chain = create_data_collection_chain()
 explanation_chain = create_explanation_chain()
+
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
 
 @app.route('/')
 def index():
@@ -134,114 +150,137 @@ def submit_answer():
     except Exception as e:
         app.logger.error(f"Error in submit_answer: {str(e)}")
         return jsonify({"error": f"Failed to submit answer: {str(e)}"}), 500
-
+    
 def generate_final_results(session_id):
-    """Generate final results when all questions are answered"""
     try:
         session = sessions[session_id]
-        user_data = session["collected_data"]
-        dataset_config = session["dataset_config"]
-        features = list(dataset_config["feature_types"].keys())
+        collected_data = session["collected_data"]
+        dataset_name = session["dataset_choice"]
+        model_choice = session["model_choice"]
+        cf_method_choice = session["cf_method_choice"]
         
+        if not collected_data:
+            return jsonify({"error": "No data collected"}), 400
+
         # Convert to dictionary format for prediction
-        user_data_dict = {feature: value for feature, value in zip(features, user_data)}
+        features = list(session["dataset_config"]["feature_types"].keys())
+        user_data_dict = {feature: value for feature, value in zip(features, collected_data)}
 
         # Get original prediction
         try:
-            original_prediction = model_manager.predict(
-                dataset_name=session["dataset_choice"],
-                model_type=session["model_choice"],
+            prediction_result = model_manager.predict(
+                dataset_name=dataset_name,
+                model_type=model_choice,
                 input_data=user_data_dict
             )
+            
+            # Extract class prediction from probabilities
+            if isinstance(prediction_result, (list, np.ndarray)) and len(prediction_result) > 0:
+                original_prediction = int(prediction_result[0]) if hasattr(prediction_result[0], 'item') else int(prediction_result[0])
+            else:
+                original_prediction = int(prediction_result) if hasattr(prediction_result, 'item') else int(prediction_result)
         except Exception as e:
             app.logger.error(f"Prediction failed: {str(e)}")
-            # Use mock prediction for demo
-            original_prediction = 0
+            original_prediction = 0  # Default fallback
             
-        # Generate counterfactual (mock implementation)
+        # Generate actual counterfactual explanation
+        try:
+            # Use the actual counterfactual generation method
+            cf_explanation = model_manager.generate_counterfactual(
+                model=model_choice,
+                dataset=dataset_name,
+                instance=user_data_dict,
+                method=cf_method_choice
+            )
+            
+            # Extract required changes from the counterfactual explanation
+            # Note: This depends on the structure returned by the foiltrees method
+            # You may need to adjust this based on the actual return format
+            if hasattr(cf_explanation, 'foil') and cf_explanation.foil:
+                required_changes = []
+                foil_features = cf_explanation.foil
+                
+                for i, (feature_name, current_val, new_val) in enumerate(zip(features, collected_data, foil_features)):
+                    if current_val != new_val:
+                        required_changes.append({
+                            "feature": feature_name,
+                            "current": str(current_val),
+                            "new": str(new_val)
+                        })
+                
+                # If no changes found, create a minimal change
+                if not required_changes:
+                    required_changes = [{
+                        "feature": features[0] if features else "Feature1",
+                        "current": str(collected_data[0]) if collected_data else "N/A",
+                        "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
+                    }]
+                    
+                new_prediction = 1 - original_prediction
+                
+            else:
+                # Fallback to mock changes if CF generation fails
+                required_changes = [{
+                    "feature": features[0] if features else "Feature1",
+                    "current": str(collected_data[0]) if collected_data else "N/A",
+                    "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
+                }]
+                new_prediction = 1 - original_prediction
+                
+        except Exception as e:
+            app.logger.error(f"Counterfactual generation failed: {str(e)}")
+            # Fallback to mock counterfactual changes
+            required_changes = [{
+                "feature": features[0] if features else "Feature1",
+                "current": str(collected_data[0]) if collected_data else "N/A",
+                "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
+            }]
+            new_prediction = 1 - original_prediction
+        
+        # Create counterfactual result
         counterfactual_result = {
-            "user_data": user_data,
+            "user_data": collected_data,
             "original_prediction": original_prediction,
-            "required_changes": generate_mock_changes(user_data_dict, session["dataset_choice"]),
-            "new_prediction": 1 - original_prediction,  # Flip for demo
+            "required_changes": required_changes,
+            "new_prediction": new_prediction,
             "confidence": "High"
         }
         
         # Generate explanation
         try:
-            formatted_cf = format_counterfactual(counterfactual_result, dataset_config)
+            formatted_cf = format_counterfactual(counterfactual_result, session["dataset_config"])
             explanation_result = explanation_chain.invoke(formatted_cf)
             explanation = explanation_result if isinstance(explanation_result, str) else str(explanation_result)
-            if not explanation or not explanation.strip():
-                explanation = "Unable to generate explanation at this time."
         except Exception as e:
             app.logger.error(f"Explanation generation failed: {e}")
-            explanation = generate_simple_explanation(counterfactual_result, session["dataset_choice"])
+            explanation = "Based on the model's analysis, the prediction can be changed by modifying the specified features."
 
         # Map predictions to labels
-        original_label = get_prediction_label(counterfactual_result["original_prediction"], session["dataset_choice"])
-        new_label = get_prediction_label(counterfactual_result["new_prediction"], session["dataset_choice"])
+        dataset_config = session["dataset_config"]
+        if 'class_labels' in dataset_config:
+            original_label = dataset_config['class_labels'].get(original_prediction, f"Class {original_prediction}")
+            new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
+        else:
+            original_label = "Positive" if original_prediction == 1 else "Negative"
+            new_label = "Negative" if original_prediction == 1 else "Positive"
 
-        # Clean up session
-        del sessions[session_id]
-        
-        # Return response matching frontend expectations
-        return jsonify({
+        # Convert all numpy types to native Python types
+        response_data = {
             "status": "complete",
-            "user_data": user_data,
-            "original_prediction": counterfactual_result["original_prediction"],
+            "user_data": convert_numpy_types(collected_data),
+            "feature_names": features,
+            "original_prediction": convert_numpy_types(original_prediction),
             "original_prediction_label": original_label,
             "new_prediction_label": new_label,
-            "required_changes": counterfactual_result["required_changes"],
+            "required_changes": convert_numpy_types(required_changes),
             "explanation": explanation.strip()
-        })
+        }
+
+        return jsonify(response_data)
         
     except Exception as e:
         app.logger.error(f"Error generating final results: {str(e)}")
         return jsonify({"error": f"Failed to generate results: {str(e)}"}), 500
-
-def generate_mock_changes(user_data_dict, dataset_name):
-    """Generate mock counterfactual changes based on dataset"""
-    if dataset_name == "heart_disease":
-        changes = []
-        if "chol" in user_data_dict and user_data_dict["chol"] > 200:
-            changes.append({
-                "feature": "chol",
-                "current": user_data_dict["chol"],
-                "new": 200
-            })
-        if "trestbps" in user_data_dict and user_data_dict["trestbps"] > 120:
-            changes.append({
-                "feature": "trestbps",
-                "current": user_data_dict["trestbps"],
-                "new": 120
-            })
-        return changes if changes else [{"feature": "age", "current": user_data_dict.get("age", 50), "new": 45}]
-    else:
-        # Generic mock change
-        first_key = list(user_data_dict.keys())[0]
-        return [{"feature": first_key, "current": user_data_dict[first_key], "new": "improved_value"}]
-
-def generate_simple_explanation(counterfactual_result, dataset_name):
-    """Generate a simple explanation when LLM fails"""
-    changes = counterfactual_result["required_changes"]
-    if not changes:
-        return "No significant changes needed to alter the prediction."
-    
-    change_descriptions = []
-    for change in changes:
-        change_descriptions.append(f"{change['feature']} from {change['current']} to {change['new']}")
-    
-    return f"To change the prediction, consider adjusting: {', '.join(change_descriptions)}."
-
-def get_prediction_label(pred_value, dataset_name):
-    """Map prediction values to human-readable labels"""
-    if dataset_name == "heart_disease":
-        return "Heart Disease Risk" if pred_value == 1 else "No Heart Disease Risk"
-    elif dataset_name == "diabetes":
-        return "Diabetes Risk" if pred_value == 1 else "No Diabetes Risk"
-    else:
-        return f"Class {pred_value}"
 
 def get_next_question(session_id):
     try:

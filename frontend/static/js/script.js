@@ -27,21 +27,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update the start button enable/disable logic
     function updateStartButton() {
-    startBtn.disabled = !(datasetSelect.value && modelSelect.value && cfMethodSelect.value);
+        startBtn.disabled = !(datasetSelect.value && modelSelect.value && cfMethodSelect.value);
     }
     
     // Event listeners
-    datasetSelect.addEventListener('change', function() {
-        startBtn.disabled = !this.value;
-    });
+    datasetSelect.addEventListener('change', updateStartButton);
+    modelSelect.addEventListener('change', updateStartButton);
+    cfMethodSelect.addEventListener('change', updateStartButton);
     
     startBtn.addEventListener('click', startDataCollection);
     submitBtn.addEventListener('click', submitAnswer);
     backBtn.addEventListener('click', goBack);
     restartBtn.addEventListener('click', restartApp);
-    datasetSelect.addEventListener('change', updateStartButton);
-    modelSelect.addEventListener('change', updateStartButton);
-    cfMethodSelect.addEventListener('change', updateStartButton);
     
     // Initialize the app
     function initApp() {
@@ -82,6 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show data collection UI
             datasetSelect.disabled = true;
+            modelSelect.disabled = true;
+            cfMethodSelect.disabled = true;
             startBtn.disabled = true;
             dataCollectionSection.classList.remove('d-none');
             
@@ -117,157 +116,111 @@ document.addEventListener('DOMContentLoaded', function() {
         answerInput.value = '';
         answerInput.focus();
     }
-    
-    //Submit answer and get next question
-    // function submitAnswer() {
-    //     const answer = answerInput.value.trim();
-    //     if (!answer) {
-    //         alert('Please enter a value');
-    //         return;
-    //     }
-        
-    //     showLoading(true);
-        
-    //     fetch('/submit_answer', {
-    //         method: 'POST',
-    //         headers: {
-    //             'Content-Type': 'application/json'
-    //         },
-    //         body: JSON.stringify({
-    //             session_id: currentSession,
-    //             answer: answer
-    //         })
-    //     })
-    //     .then(response => response.json())
-    //     .then(data => {
-    //         if (data.error) {
-    //             alert(data.error);
-    //             showLoading(false);
-    //             return;
-    //         }
-            
-    //         if (data.status === 'complete') {
-    //             // Show results
-    //             displayResults(data);
-    //             dataCollectionSection.classList.add('d-none');
-    //             resultsSection.classList.remove('d-none');
-    //         } else {
-    //             // Show next question
-    //             displayQuestion(data);
-    //         }
-            
-    //         showLoading(false);
-    //     })
-    //     .catch(error => {
-    //         console.error('Error:', error);
-    //         alert('Failed to submit answer. Please try again.');
-    //         showLoading(false);
-    //     });
-    // }
-    
-    // // Go back to previous question
-    // function goBack() {
-    //     if (collectedData.length > 0) {
-    //         collectedData.pop();
-    //         currentSession.currentIndex--;
-    //         // In a real app, we would need to implement state management for going back
-    //         alert('Going back to previous question is not fully implemented in this demo');
-    //     }
-    // }
 
     // Submit answer and get next question
-function submitAnswer() {
-    const answer = answerInput.value.trim();
-    if (!answer) {
-        alert('Please enter a value');
-        return;
-    }
-    
-    // Disable submit button to prevent double submission
-    submitBtn.disabled = true;
-    showLoading(true);
-    
-    fetch('/submit_answer', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            session_id: currentSession,
-            answer: answer
-        })
-    })
-    .then(response => {
-        // Check if response is ok
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            showLoading(false);
-            submitBtn.disabled = false;
+    function submitAnswer() {
+        const answer = answerInput.value.trim();
+        if (!answer) {
+            alert('Please enter a value');
             return;
         }
         
-        if (data.status === 'complete') {
-            // Show results
-            displayResults(data);
-            dataCollectionSection.classList.add('d-none');
-            resultsSection.classList.remove('d-none');
-        } else {
-            // Show next question
-            displayQuestion(data);
-        }
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        showLoading(true);
         
-        showLoading(false);
-        submitBtn.disabled = false;
-    })
-    .catch(error => {
-        console.error('Error details:', error);
-        alert(`Failed to submit answer: ${error.message}. Please try again.`);
-        showLoading(false);
-        submitBtn.disabled = false;
-    });
-}
+        fetch('/submit_answer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                session_id: currentSession,
+                answer: answer
+            })
+        })
+        .then(response => {
+            // Check if response is ok
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                showLoading(false);
+                submitBtn.disabled = false;
+                return;
+            }
+            
+            if (data.status === 'complete') {
+                // Show results
+                displayResults(data);
+                dataCollectionSection.classList.add('d-none');
+                resultsSection.classList.remove('d-none');
+            } else {
+                // Show next question
+                displayQuestion(data);
+            }
+            
+            showLoading(false);
+            submitBtn.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error details:', error);
+            alert(`Failed to submit answer: ${error.message}. Please try again.`);
+            showLoading(false);
+            submitBtn.disabled = false;
+        });
+    }
     
     // Display results and explanation
     function displayResults(data) {
-        // Display user data
-        const datasetConfig = DATASETS[currentDataset];
-        const features = Object.keys(datasetConfig.feature_types);
-
         document.getElementById('original-prediction').textContent =
             data.original_prediction_label;
         document.getElementById('counterfactual-prediction').textContent =
             data.new_prediction_label;
         
+        // Display user data
         userDataDiv.innerHTML = '';
-        features.forEach((feature, index) => {
-            const value = data.user_data[index];
-            const item = document.createElement('div');
-            item.className = 'feature-item';
-            item.innerHTML = `
-                <span class="feature-name">${feature}:</span>
-                <span class="feature-value">${value}</span>
-            `;
-            userDataDiv.appendChild(item);
-        });
+        if (data.feature_names && data.user_data) {
+            data.feature_names.forEach((feature, index) => {
+                const value = data.user_data[index];
+                const item = document.createElement('div');
+                item.className = 'feature-item';
+                item.innerHTML = `
+                    <span class="feature-name">${feature}:</span>
+                    <span class="feature-value">${value}</span>
+                `;
+                userDataDiv.appendChild(item);
+            });
+        }
         
         // Display counterfactual changes
-        counterfactualChangesDiv.innerHTML =
-        data.required_changes.map(c => `
-            <div class="change-item">
-            <span>${c.feature}:</span>
-            <span class="change-value">${c.current} → ${c.new}</span>
-            </div>
-        `).join('');
-
+        counterfactualChangesDiv.innerHTML = '';
+        if (data.required_changes && Array.isArray(data.required_changes)) {
+            data.required_changes.forEach(change => {
+                const changeItem = document.createElement('div');
+                changeItem.className = 'change-item';
+                changeItem.innerHTML = `
+                    <span>${change.feature}:</span>
+                    <span class="change-value">${change.current} → ${change.new}</span>
+                `;
+                counterfactualChangesDiv.appendChild(changeItem);
+            });
+        } else {
+            counterfactualChangesDiv.innerHTML = '<p>No specific changes required.</p>';
+        }
         
         // Display explanation
         explanationDiv.innerHTML = `<p>${data.explanation.replace(/\n/g, '<br>')}</p>`;
+    }
+    
+    // Go back function (placeholder)
+    function goBack() {
+        // This would need backend support to implement properly
+        alert('Back functionality not implemented yet');
     }
     
     // Restart the application
@@ -277,8 +230,12 @@ function submitAnswer() {
         currentDataset = null;
         
         datasetSelect.disabled = false;
+        modelSelect.disabled = false;
+        cfMethodSelect.disabled = false;
         datasetSelect.value = '';
-        startBtn.disabled = true;
+        modelSelect.value = '';
+        cfMethodSelect.value = '';
+        updateStartButton();
         
         resultsSection.classList.add('d-none');
         dataCollectionSection.classList.add('d-none');
@@ -293,6 +250,6 @@ function submitAnswer() {
         }
     }
     
-        // Initialize the app
-        initApp();
-    });
+    // Initialize the app
+    initApp();
+});

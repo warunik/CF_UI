@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pickle
 import numpy as np
 import pandas as pd
@@ -7,6 +10,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn import metrics
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
+from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
 
 class ModelManager:
     def __init__(self, datasets_config=None, models_dir="models"):
@@ -225,34 +229,51 @@ class ModelManager:
         
         # Get config reference
         config = self.datasets_config[dataset_name]
+        return preds
         
-        # Convert numerical predictions to class names
-        if 'class_labels' in config:
-            # Map numerical predictions to string labels
-            class_labels = config['class_labels']
-            # Ensure predictions are integers for mapping
-            preds = preds.astype(int)
-            # Map each prediction to its class name
-            class_names = [class_labels[pred] for pred in preds]
-            return class_names
-        else:
-            # Fallback to numerical values if no class_labels mapping exists
-            le = dataset['label_encoder']
-            return le.inverse_transform(preds)
+        # # Convert numerical predictions to class names
+        # if 'class_labels' in config:
+        #     # Map numerical predictions to string labels
+        #     class_labels = config['class_labels']
+        #     # Ensure predictions are integers for mapping
+        #     preds = preds.astype(int)
+        #     # Map each prediction to its class name
+        #     class_names = [class_labels[pred] for pred in preds]
+        #     return class_names
+        # else:
+        #     # Fallback to numerical values if no class_labels mapping exists
+        #     le = dataset['label_encoder']
+        #     return le.inverse_transform(preds)
 
-    # def generate_counterfactual(self, model, dataset, instance, method="foil_trees"):
-    #     """Generate counterfactual explanation"""
-    #     if method == "foil_trees":
-    #         # Prepare domain mapper
-    #         dm = domain_mappers.DomainMapperTabular(
-    #             train_data=dataset['X_train'],
-    #             feature_names=dataset['feature_names'],
-    #             contrast_names=dataset['target_names']
-    #         )
+    def generate_counterfactual(self, model, dataset, instance, method="foiltrees"):
+        """Generate counterfactual explanation"""
+
+        data_config = self.load_dataset(dataset)
+        input_array = np.array([instance[feature] for feature in feature_names])
+
+        # Extract feature names and class labels
+        feature_names = list(data_config["feature_types"].keys())
+        class_labels = list(data_config["class_labels"].values())
+
+        exp = contrastive_explanation.ContrastiveExplanation(dm)
+
+        model_ = self.get_model(
+            dataset_name=dataset,
+            model_type=model
+        )
+
+
+        if method == "foiltrees":
+            # Prepare domain mapper
+            dm = domain_mappers.DomainMapperTabular(
+                train_data=self.get_X_train(dataset_name=dataset),
+                feature_names=feature_names,
+                contrast_names=class_labels  # Use the class labels
+            )
             
-    #         # Generate explanation
-    #         exp = contrastive_explanation.ContrastiveExplanation(dm)
-    #         return exp.explain_instance_domain(model.predict_proba, instance)
+            # Generate explanation
+            exp = contrastive_explanation.ContrastiveExplanation(dm)
+            return exp.explain_instance_domain(model_.predict_proba, input_array)
         
-    #     # Add other CF methods here
-    #     raise ValueError(f"Unsupported CF method: {method}")
+        # Add other CF methods here
+        raise ValueError(f"Unsupported CF method: {method}")
