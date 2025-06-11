@@ -184,6 +184,9 @@ def generate_final_results(session_id):
             original_prediction = 0  # Default fallback
             
         # Generate actual counterfactual explanation
+        required_changes = []
+        new_prediction = original_prediction  # Default to same prediction
+        
         try:
             # Use the actual counterfactual generation method
             cf_explanation = model_manager.generate_counterfactual(
@@ -194,10 +197,7 @@ def generate_final_results(session_id):
             )
             
             # Extract required changes from the counterfactual explanation
-            # Note: This depends on the structure returned by the foiltrees method
-            # You may need to adjust this based on the actual return format
-            if hasattr(cf_explanation, 'foil') and cf_explanation.foil:
-                required_changes = []
+            if hasattr(cf_explanation, 'foil') and cf_explanation.foil is not None:
                 foil_features = cf_explanation.foil
                 
                 for i, (feature_name, current_val, new_val) in enumerate(zip(features, collected_data, foil_features)):
@@ -208,34 +208,13 @@ def generate_final_results(session_id):
                             "new": str(new_val)
                         })
                 
-                # If no changes found, create a minimal change
-                if not required_changes:
-                    required_changes = [{
-                        "feature": features[0] if features else "Feature1",
-                        "current": str(collected_data[0]) if collected_data else "N/A",
-                        "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
-                    }]
-                    
-                new_prediction = 1 - original_prediction
-                
-            else:
-                # Fallback to mock changes if CF generation fails
-                required_changes = [{
-                    "feature": features[0] if features else "Feature1",
-                    "current": str(collected_data[0]) if collected_data else "N/A",
-                    "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
-                }]
-                new_prediction = 1 - original_prediction
+                # Only set new prediction if we found actual changes
+                if required_changes:
+                    new_prediction = 1 - original_prediction
                 
         except Exception as e:
             app.logger.error(f"Counterfactual generation failed: {str(e)}")
-            # Fallback to mock counterfactual changes
-            required_changes = [{
-                "feature": features[0] if features else "Feature1",
-                "current": str(collected_data[0]) if collected_data else "N/A",
-                "new": str(float(collected_data[0]) + 1) if collected_data and isinstance(collected_data[0], (int, float)) else "Modified"
-            }]
-            new_prediction = 1 - original_prediction
+            # No fallback - leave required_changes as empty list
         
         # Create counterfactual result
         counterfactual_result = {
@@ -248,21 +227,33 @@ def generate_final_results(session_id):
         
         # Generate explanation
         try:
-            formatted_cf = format_counterfactual(counterfactual_result, session["dataset_config"])
-            explanation_result = explanation_chain.invoke(formatted_cf)
-            explanation = explanation_result if isinstance(explanation_result, str) else str(explanation_result)
+            if required_changes:
+                formatted_cf = format_counterfactual(counterfactual_result, session["dataset_config"])
+                explanation_result = explanation_chain.invoke(formatted_cf)
+                explanation = explanation_result if isinstance(explanation_result, str) else str(explanation_result)
+            else:
+                explanation = "No counterfactual explanations found for this instance."
         except Exception as e:
             app.logger.error(f"Explanation generation failed: {e}")
-            explanation = "Based on the model's analysis, the prediction can be changed by modifying the specified features."
+            if required_changes:
+                explanation = "Based on the model's analysis, the prediction can be changed by modifying the specified features."
+            else:
+                explanation = "No counterfactual explanations found for this instance."
 
         # Map predictions to labels
         dataset_config = session["dataset_config"]
         if 'class_labels' in dataset_config:
             original_label = dataset_config['class_labels'].get(original_prediction, f"Class {original_prediction}")
-            new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
+            if required_changes:
+                new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
+            else:
+                new_label = "None"
         else:
             original_label = "Positive" if original_prediction == 1 else "Negative"
-            new_label = "Negative" if original_prediction == 1 else "Positive"
+            if required_changes:
+                new_label = "Negative" if original_prediction == 1 else "Positive"
+            else:
+                new_label = "None"
 
         # Convert all numpy types to native Python types
         response_data = {

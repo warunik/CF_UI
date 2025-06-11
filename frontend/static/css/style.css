@@ -335,12 +335,20 @@
             margin-bottom: 1rem;
         }
 
+        .mt-3 {
+            color: var(--text-primary);
+        }
+
         .prediction-card {
             background: var(--bg-tertiary);
             border-radius: 10px;
             padding: 1.75rem;
             border: 1px solid var(--border);
             transition: var(--transition);
+        }
+
+        .prediction-card p {
+            color: var(--text-primary);
         }
 
         .prediction-card:hover {
