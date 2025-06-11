@@ -247,33 +247,58 @@ class ModelManager:
 
     def generate_counterfactual(self, model, dataset, instance, method="foiltrees"):
         """Generate counterfactual explanation"""
-
+        # 1. Load your processed dataset info
         data_config = self.load_dataset(dataset)
-        input_array = np.array([instance[feature] for feature in feature_names])
+        feature_names = data_config['feature_names']      # <-- the actual columns used by your model
+        # class_labels comes from your CONFIG, not from data_config
+        class_labels = list(self.datasets_config[dataset]['class_labels'].values())
 
-        # Extract feature names and class labels
-        feature_names = list(data_config["feature_types"].keys())
-        class_labels = list(data_config["class_labels"].values())
+        # 2. Build the input array in the same order as your training features
+        input_array = np.array([instance.get(f, 0) for f in feature_names])
 
-        exp = contrastive_explanation.ContrastiveExplanation(dm)
+        # 3. Get your trained model
+        model_ = self.get_model(dataset_name=dataset, model_type=model)
 
-        model_ = self.get_model(
-            dataset_name=dataset,
-            model_type=model
+        # 4. Prepare the domain mapper (needs to know the feature_names and the train data)
+        dm = domain_mappers.DomainMapperTabular(
+            train_data=self.get_X_train(dataset_name=dataset),
+            feature_names=feature_names,
+            contrast_names=class_labels
         )
 
-
+        # 5. Build the foil-trees explainer and generate the CF
+        exp = contrastive_explanation.ContrastiveExplanation(dm)
         if method == "foiltrees":
-            # Prepare domain mapper
-            dm = domain_mappers.DomainMapperTabular(
-                train_data=self.get_X_train(dataset_name=dataset),
-                feature_names=feature_names,
-                contrast_names=class_labels  # Use the class labels
-            )
-            
-            # Generate explanation
-            exp = contrastive_explanation.ContrastiveExplanation(dm)
             return exp.explain_instance_domain(model_.predict_proba, input_array)
-        
-        # Add other CF methods here
+
         raise ValueError(f"Unsupported CF method: {method}")
+
+
+# if __name__ == "__main__":
+#     from config import DATASETS
+#     import numpy as np
+
+#     # Create an instance of ModelManager
+#     manager = ModelManager(datasets_config=DATASETS)
+
+#     input_data = {
+#         "Pregnancies": 3,
+#         "Glucose": 110,
+#         "BloodPressure": 92,
+#         "SkinThickness": 0,
+#         "Insulin": 2,
+#         "BMI": 34,
+#         "DiabetesPedigreeFunction": 0.191,
+#         "Age": 40,
+#     }
+
+#     # Call the method through the manager instance
+#     cf = manager.generate_counterfactual(
+#         model="random_forest",  # Fixed typo in model name
+#         dataset="diabetes",
+#         instance=input_data,  # Pass as dictionary
+#         method="foiltrees"
+#     )
+    
+#     print("\nCounterfactual Explanation:\n", cf, "\n")
+    

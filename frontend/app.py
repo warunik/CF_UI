@@ -8,6 +8,7 @@ from backend.app.utils import load_dataset, format_counterfactual
 from backend.app.model_manager import ModelManager
 import uuid
 import numpy as np
+import re
 
 app = Flask(__name__)
 model_manager = ModelManager(datasets_config=DATASETS)
@@ -195,22 +196,42 @@ def generate_final_results(session_id):
                 instance=user_data_dict,
                 method=cf_method_choice
             )
-            
-            # Extract required changes from the counterfactual explanation
-            if hasattr(cf_explanation, 'foil') and cf_explanation.foil is not None:
-                foil_features = cf_explanation.foil
-                
-                for i, (feature_name, current_val, new_val) in enumerate(zip(features, collected_data, foil_features)):
-                    if current_val != new_val:
+
+            if cf_explanation and isinstance(cf_explanation, str):
+                conditions = cf_explanation.split(' and ')
+                for cond in conditions:
+                    cond = cond.strip()
+                    # Match feature, operator, and value
+                    match = re.match(r'([\w\s]+)\s*(<=|>=|<|>|=)\s*(.+)', cond)
+                    if match:
+                        feature = match.group(1).strip()
+                        operator = match.group(2).strip()
+                        value_str = match.group(3).strip()
+                        
+                        # Determine change type
+                        if operator in ['<=', '<']:
+                            change_type = 'decrease'
+                        elif operator in ['>=', '>']:
+                            change_type = 'increase'
+                        else:  # '='
+                            change_type = 'set'
+                        
+                        # Convert value
+                        try:
+                            value = float(value_str) if '.' in value_str else int(value_str)
+                        except ValueError:
+                            value = value_str.strip('"\'')  # Remove quotes for categorical
+                        
                         required_changes.append({
-                            "feature": feature_name,
-                            "current": str(current_val),
-                            "new": str(new_val)
+                            'feature': feature,
+                            'change_type': change_type,
+                            'value': value
                         })
+            
+            # Only flip prediction if we have valid changes
+            if required_changes:
+                new_prediction = 1 - original_prediction
                 
-                # Only set new prediction if we found actual changes
-                if required_changes:
-                    new_prediction = 1 - original_prediction
                 
         except Exception as e:
             app.logger.error(f"Counterfactual generation failed: {str(e)}")
@@ -220,7 +241,7 @@ def generate_final_results(session_id):
         counterfactual_result = {
             "user_data": collected_data,
             "original_prediction": original_prediction,
-            "required_changes": required_changes,
+            "required_changes": cf_explanation,
             "new_prediction": new_prediction,
             "confidence": "High"
         }
