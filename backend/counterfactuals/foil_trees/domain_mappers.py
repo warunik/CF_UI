@@ -442,77 +442,157 @@ class DomainMapperTabular(DomainMapper):
                 ex = ex[:-1]
         return ex
 
+    # def rule_to_str(self,
+    #                 rule,
+    #                 remove_last=False):
+    #     """Convert a rule to string."""
+    #     rule = rule or []
+    #     rules = [str(c) for c in self.map_feature_names(rule, remove_last)]
+    #     return ' and '.join(rules)
+    
     def rule_to_str(self,
                     rule,
                     remove_last=False):
         """Convert a rule to string."""
         rule = rule or []
         rules = [str(c) for c in self.map_feature_names(rule, remove_last)]
-        return ' and '.join(rules)
+        return rules
 
-    def explain(self,
-            fact,
-            foil,
-            counterfactuals,
-            factuals,
-            confidence,
-            fidelity,
-            time,
-                **kwargs):
-        """Explain an instance using the results of
-        ContrastiveExplanation.explain_instance()"""
+    # def explain(self,
+    #         fact,
+    #         foil,
+    #         counterfactuals,
+    #         factuals,
+    #         confidence,
+    #         fidelity,
+    #         time,
+    #             **kwargs):
+    #     """Explain an instance using the results of
+    #     ContrastiveExplanation.explain_instance()"""
         
+    #     # Map IDs to names
+    #     fact_name = self.map_contrast_names(fact)
+    #     foil_name = self.map_contrast_names(foil)
+        
+    #     # Create table header
+    
+    #     # table = [
+    #     #     "|-------------------|--------------------------------------------------------------|",
+    #     #     "| {:<17} | {:<60} |".format("Aspect", "Details"),
+    #     #     "|-------------------|--------------------------------------------------------------|"
+    #     # ]
+        
+    #     # # Add explanation components
+    #     # table.append("| {:<17} | {:<60} |".format("Predicted Class", fact_name))
+    #     # table.append("| {:<17} | {:<60} |".format("Contrast Class", foil_name))
+    #     # table.append("| {:<17} | {:<60} |".format(
+    #     #     "Counterfactuals", 
+    #     #     self.rule_to_str(counterfactuals) or "N/A"
+    #     # ))
+        
+    #     # table.append("| {:<17} | {:<60} |".format(
+    #     #     "Factual Rules",
+    #     #     self.rule_to_str(factuals, remove_last=True) or "N/A"
+    #     # ))
+        
+    #     # # Add metrics
+    #     # table.append("| {:<17} | {:<60.1%} |".format("Confidence", confidence))
+    #     # table.append("| {:<17} | {:<60.1%} |".format("Fidelity", fidelity))
+    #     # table.append("| {:<17} | {:<60.2f} |".format("Time Taken(s)", time))
+    #     # table.append("|-------------------|--------------------------------------------------------------|")
+
+        
+        
+    #     # # Combine into final output
+    #     # explanation_table = "\n".join(table)
+        
+    #     # if factuals is None:
+    #     #     return explanation_table
+    #     # else:
+    #     #     return (
+    #     #         explanation_table,
+    #     #         "\nAdditional Factual Explanation:\n" +
+    #     #         self.rule_to_str(factuals, remove_last=True)
+    #     #     )
+        
+    #     if factuals is None:
+    #         return self.rule_to_str(counterfactuals) or "N/A"
+    #     else:
+    #         return (
+    #            self.rule_to_str(counterfactuals) or "N/A"
+    #         )
+
+    def explain(self, fact, foil, counterfactuals, factuals, confidence, fidelity, time, **kwargs):
         # Map IDs to names
         fact_name = self.map_contrast_names(fact)
         foil_name = self.map_contrast_names(foil)
         
-        # Create table header
+        if not counterfactuals:
+            return []
+        
+        return self.get_structured_changes(counterfactuals, factuals)
     
-        table = [
-            "|-------------------|--------------------------------------------------------------|",
-            "| {:<17} | {:<60} |".format("Aspect", "Details"),
-            "|-------------------|--------------------------------------------------------------|"
-        ]
+    def get_structured_changes(self, rule, original_instance):
+        """Convert counterfactual rules to structured changes"""
+        changes = []
         
-        # Add explanation components
-        table.append("| {:<17} | {:<60} |".format("Predicted Class", fact_name))
-        table.append("| {:<17} | {:<60} |".format("Contrast Class", foil_name))
-        table.append("| {:<17} | {:<60} |".format(
-            "Counterfactuals", 
-            self.rule_to_str(counterfactuals) or "N/A"
-        ))
+        # Get mapped rule with feature names
+        mapped_rule = self.map_feature_names(rule, remove_last=False)
         
-        # table.append("| {:<17} | {:<60} |".format(
-        #     "Factual Rules",
-        #     self.rule_to_str(factuals, remove_last=True) or "N/A"
-        # ))
-        
-        # Add metrics
-        table.append("| {:<17} | {:<60.1%} |".format("Confidence", confidence))
-        table.append("| {:<17} | {:<60.1%} |".format("Fidelity", fidelity))
-        table.append("| {:<17} | {:<60.2f} |".format("Time Taken(s)", time))
-        table.append("|-------------------|--------------------------------------------------------------|")
+        for condition in mapped_rule:
+            # Skip empty conditions
+            if not condition:
+                continue
+                
+            # Handle different condition formats
+            if isinstance(condition, Literal):
+                feature_name = condition.feature
+                operator = condition.operator
+                threshold = condition.value
+                is_categorical = getattr(condition, 'categorical', False)
+            elif isinstance(condition, tuple) and len(condition) >= 3:
+                feature_name = condition[0]
+                operator = condition[1]
+                threshold = condition[2]
+                is_categorical = False
+            else:
+                # Unsupported condition format
+                continue
 
+            # Get original value from the instance
+            try:
+                # Find index of feature in original data
+                if feature_name in self.feature_map:
+                    idx = self.feature_map[feature_name][0]
+                else:
+                    # Fallback: find by name
+                    idx = list(self.feature_map_inv_verbose.keys())[
+                        list(self.feature_map_inv_verbose.values()).index(feature_name)
+                    ]
+                current_value = original_instance[idx]
+            except (ValueError, IndexError, KeyError):
+                current_value = "N/A"
+            
+            # For categorical features, convert threshold to category name
+            if is_categorical and feature_name in self.encoders:
+                try:
+                    threshold = self.encoders[feature_name].idx2name[threshold]
+                except (IndexError, KeyError):
+                    pass  # Keep numerical threshold if conversion fails
+            
+            # Format the change
+            change = {
+                'feature': feature_name,
+                'current': current_value,
+                'new': threshold
+            }
+            
+            # Add operator information if needed
+            change['operator'] = operator
+            
+            changes.append(change)
         
-        
-        # Combine into final output
-        explanation_table = "\n".join(table)
-        
-        # if factuals is None:
-        #     return explanation_table
-        # else:
-        #     return (
-        #         explanation_table,
-        #         "\nAdditional Factual Explanation:\n" +
-        #         self.rule_to_str(factuals, remove_last=True)
-        #     )
-        
-        if factuals is None:
-            return self.rule_to_str(counterfactuals) or "N/A"
-        else:
-            return (
-               self.rule_to_str(counterfactuals) or "N/A"
-            )
+        return changes
 
     def counterfactual_list(self,
             fact,

@@ -11,6 +11,7 @@ from sklearn import metrics
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
+from counterfactuals.foil_trees.rules import Operator
 
 class ModelManager:
     def __init__(self, datasets_config=None, models_dir="models"):
@@ -260,15 +261,16 @@ class ModelManager:
         model_ = self.get_model(dataset_name=dataset, model_type=model)
 
         # 4. Prepare the domain mapper (needs to know the feature_names and the train data)
-        dm = domain_mappers.DomainMapperTabular(
-            train_data=self.get_X_train(dataset_name=dataset),
-            feature_names=feature_names,
-            contrast_names=class_labels
-        )
+        
 
         # 5. Build the foil-trees explainer and generate the CF
         exp = contrastive_explanation.ContrastiveExplanation(dm)
         if method == "foiltrees":
+            dm = domain_mappers.DomainMapperTabular(
+            train_data=self.get_X_train(dataset_name=dataset),
+            feature_names=feature_names,
+            contrast_names=class_labels
+            )
             return exp.explain_instance_domain(model_.predict_proba, input_array)
 
         raise ValueError(f"Unsupported CF method: {method}")
@@ -294,11 +296,18 @@ class ModelManager:
 
 #     # Call the method through the manager instance
 #     cf = manager.generate_counterfactual(
-#         model="random_forest",  # Fixed typo in model name
+#         model="random_forest",  
 #         dataset="diabetes",
-#         instance=input_data,  # Pass as dictionary
+#         instance=input_data,  
 #         method="foiltrees"
 #     )
-    
+
+#     serializable_changes = []
+#     for change in cf:
+#         modified_change = change.copy()
+#         if 'operator' in modified_change and isinstance(modified_change['operator'], Operator):
+#             modified_change['operator'] = modified_change['operator'].value
+#         serializable_changes.append(modified_change)
+
 #     print("\nCounterfactual Explanation:\n", cf, "\n")
-    
+#     print("Serializable Changes:\n", serializable_changes, "\n")

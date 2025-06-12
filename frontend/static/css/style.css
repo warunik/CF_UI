@@ -443,6 +443,7 @@
 
         .alert {
             background: var(--bg-tertiary);
+            color: var(--text-primary);
             padding: 1.5rem;
             border-radius: 10px;
             border: 1px solid var(--border);

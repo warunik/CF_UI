@@ -185,8 +185,6 @@ def generate_final_results(session_id):
             original_prediction = 0  # Default fallback
             
         # Generate actual counterfactual explanation
-        required_changes = []
-        new_prediction = original_prediction  # Default to same prediction
         
         try:
             # Use the actual counterfactual generation method
@@ -197,40 +195,7 @@ def generate_final_results(session_id):
                 method=cf_method_choice
             )
 
-            if cf_explanation and isinstance(cf_explanation, str):
-                conditions = cf_explanation.split(' and ')
-                for cond in conditions:
-                    cond = cond.strip()
-                    # Match feature, operator, and value
-                    match = re.match(r'([\w\s]+)\s*(<=|>=|<|>|=)\s*(.+)', cond)
-                    if match:
-                        feature = match.group(1).strip()
-                        operator = match.group(2).strip()
-                        value_str = match.group(3).strip()
-                        
-                        # Determine change type
-                        if operator in ['<=', '<']:
-                            change_type = 'decrease'
-                        elif operator in ['>=', '>']:
-                            change_type = 'increase'
-                        else:  # '='
-                            change_type = 'set'
-                        
-                        # Convert value
-                        try:
-                            value = float(value_str) if '.' in value_str else int(value_str)
-                        except ValueError:
-                            value = value_str.strip('"\'')  # Remove quotes for categorical
-                        
-                        required_changes.append({
-                            'feature': feature,
-                            'change_type': change_type,
-                            'value': value
-                        })
-            
-            # Only flip prediction if we have valid changes
-            if required_changes:
-                new_prediction = 1 - original_prediction
+            new_prediction = 1 - original_prediction
                 
                 
         except Exception as e:
@@ -245,37 +210,30 @@ def generate_final_results(session_id):
             "new_prediction": new_prediction,
             "confidence": "High"
         }
-        
-        # Generate explanation
-        try:
-            if required_changes:
-                formatted_cf = format_counterfactual(counterfactual_result, session["dataset_config"])
-                explanation_result = explanation_chain.invoke(formatted_cf)
-                explanation = explanation_result if isinstance(explanation_result, str) else str(explanation_result)
-            else:
-                explanation = "No counterfactual explanations found for this instance."
-        except Exception as e:
-            app.logger.error(f"Explanation generation failed: {e}")
-            if required_changes:
-                explanation = "Based on the model's analysis, the prediction can be changed by modifying the specified features."
-            else:
-                explanation = "No counterfactual explanations found for this instance."
 
-        # Map predictions to labels
+        # Convert enum values to their string representations
+        serializable_changes = []
+        for change in cf_explanation:
+            serializable_change = change.copy()
+            serializable_change["operator"] = str(change["operator"]).split('.')[-1]  # Convert enum to string
+            serializable_changes.append(serializable_change)
+
+        # Now use serializable_changes in your response
+
         dataset_config = session["dataset_config"]
-        if 'class_labels' in dataset_config:
-            original_label = dataset_config['class_labels'].get(original_prediction, f"Class {original_prediction}")
-            if required_changes:
-                new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
-            else:
-                new_label = "None"
-        else:
-            original_label = "Positive" if original_prediction == 1 else "Negative"
-            if required_changes:
-                new_label = "Negative" if original_prediction == 1 else "Positive"
-            else:
-                new_label = "None"
 
+        original_label = dataset_config['class_labels'].get(original_prediction, f"Class {original_prediction}")
+        new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
+        explanation = explanation_chain.invoke({    
+            "dataset_name": dataset_config.get("name", dataset_name),
+            "original_prediction": original_prediction,
+            "original_class": original_label,
+            "new_prediction": new_prediction,
+            "new_class": new_label,
+            "confidence": "High", 
+            "changes": cf_explanation,
+            "user_data_str": str(user_data_dict)
+        })
         # Convert all numpy types to native Python types
         response_data = {
             "status": "complete",
@@ -284,7 +242,7 @@ def generate_final_results(session_id):
             "original_prediction": convert_numpy_types(original_prediction),
             "original_prediction_label": original_label,
             "new_prediction_label": new_label,
-            "required_changes": convert_numpy_types(required_changes),
+            "required_changes": serializable_changes,
             "explanation": explanation.strip()
         }
 
