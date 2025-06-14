@@ -15,14 +15,14 @@ model_manager = ModelManager(datasets_config=DATASETS)
 
 # Sample input for "heart" dataset
 input_data = {
-    "Pregnancies": 3,
-    "Glucose": 110,
-    "BloodPressure": 92,
-    "SkinThickness": 0,
-    "Insulin": 2,
-    "BMI": 34,
-    "DiabetesPedigreeFunction": 0.191,
-    "Age": 40,
+    "Pregnancies": 1,
+    "Glucose": 189,
+    "BloodPressure": 60,
+    "SkinThickness": 23,
+    "Insulin": 846,
+    "BMI": 30.1,
+    "DiabetesPedigreeFunction": 0.398,
+    "Age": 50,
 }
 
 feature_names = list(DATASETS[name_data]["feature_types"].keys())

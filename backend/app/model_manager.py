@@ -264,13 +264,16 @@ class ModelManager:
         
 
         # 5. Build the foil-trees explainer and generate the CF
-        exp = contrastive_explanation.ContrastiveExplanation(dm)
+        
         if method == "foiltrees":
             dm = domain_mappers.DomainMapperTabular(
             train_data=self.get_X_train(dataset_name=dataset),
             feature_names=feature_names,
             contrast_names=class_labels
             )
+
+            exp = contrastive_explanation.ContrastiveExplanation(dm)
+
             return exp.explain_instance_domain(model_.predict_proba, input_array)
 
         raise ValueError(f"Unsupported CF method: {method}")
