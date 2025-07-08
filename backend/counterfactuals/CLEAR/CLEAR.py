@@ -1,7 +1,5 @@
-""" This is the main module for CLEAR. CLEAR can either be run with:
-(a) one of the sample models/datasets provided in CLEAR_sample_models_datasets.py .To do this run
-    Run_CLEAR_with_sample_model()
-(b) with a user created model and datasets. In this case run
+""" This is the main module for CLEAR. CLEAR can be run with:
+(a) with a user created model and datasets. In this case run
      Run_CLEAR(X_train, X_test_sample, model, model_name, numeric_features, categorical_features, category_prefix, class_labels)
      An example of the required inputs is provided at the bottom of this module.
 CLEAR's input parameters are specified in CLEAR_settings.py
@@ -9,20 +7,11 @@ CLEAR's input parameters are specified in CLEAR_settings.py
 
 import time
 import pandas as pd
-import tensorflow as tf
 import numpy as np
-import CLEAR_sample_models_datasets
 import CLEAR_perturbations
 import CLEAR_regression
 import CLEAR_settings
 import CLEAR_sensitivity_files
-
-
-def Run_CLEAR_with_sample_model():
-    CLEAR_settings.init()
-    (X_train, X_test_sample, model) =CLEAR_sample_models_datasets.Create_model_dataset()
-    CLEAR_Main(X_train, X_test_sample, model)
-    return()
 
 def Run_CLEAR(X_train, X_test_sample, model):
     CLEAR_settings.init()
@@ -70,10 +59,38 @@ def CLEAR_Main(X_train, X_test_sample, model):
     print("Total execution time: {}".format(end_time - start_time))
     return()
 
+
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
+from backend.app.config import DATASETS
+from backend.app.model_manager import ModelManager
 if __name__ == "__main__":
     # X_train = pd.read_pickle('D:/Warwick/X_train_Adult')
     # X_test_sample = pd.read_pickle('D:/Warwick/X_test_sample_Adult')
     # model = tf.keras.models.load_model('D:/Warwick/CLEAR_Adult.h5')
-    # Run_CLEAR(X_train, X_test_sample, model)
 
-    Run_CLEAR_with_sample_model()
+
+    model_manager = ModelManager(datasets_config=DATASETS)
+
+    # Sample input for "heart" dataset
+    input_data = {
+        "Pregnancies": 1,
+        "Glucose": 189,
+        "BloodPressure": 60,
+        "SkinThickness": 23,
+        "Insulin": 846,
+        "BMI": 30.1,
+        "DiabetesPedigreeFunction": 0.398,
+        "Age": 50,
+    }
+
+    model = model_manager.get_model(
+        dataset_name="diabetes",
+        model_type="random_forest"
+    )
+
+    X_train = model_manager.get_X_train(dataset_name="diabetes")
+
+    Run_CLEAR(X_train, input_data, model)

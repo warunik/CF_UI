@@ -1,0 +1,13 @@
+# Example configuration
+immutable: [0, 2]  # Feature indices
+actionable:
+  1: 
+    type: lower_bound
+    bound: original
+  3:
+    type: upper_bound
+    bound: 100
+causal_rules:
+  - if: 3
+    then: 1
+    relation: positive  # If feature3 increases, feature1 must increase

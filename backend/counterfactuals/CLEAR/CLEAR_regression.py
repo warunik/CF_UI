@@ -8,10 +8,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import sklearn
-import sklearn.preprocessing
 import statsmodels.api as sm
-import tensorflow as tf
 import copy
 from sklearn.preprocessing import PolynomialFeatures
 from scipy.signal import argrelextrema

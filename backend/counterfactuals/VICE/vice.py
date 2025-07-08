@@ -1,11 +1,6 @@
-# --- Instance Level Explanation --- 
-
-import pandas as pd
 import numpy as np
 from model import *
 from utils import *
-# from global_explanations import *
-# from d3_functions import *
 
 
 class Vice:
@@ -303,16 +298,6 @@ class Vice:
                 return top_change_vectors[:keep_top], top_rows[:keep_top]
             else:
                 return np.tile(np.zeros(no_features), (keep_top,1)),np.tile(orig_row, (keep_top,1))
-
-
-
-
-
-
-
-
-
-
 
 
     def __evaluate_data_set(self):

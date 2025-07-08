@@ -231,20 +231,6 @@ class ModelManager:
         # Get config reference
         config = self.datasets_config[dataset_name]
         return preds
-        
-        # # Convert numerical predictions to class names
-        # if 'class_labels' in config:
-        #     # Map numerical predictions to string labels
-        #     class_labels = config['class_labels']
-        #     # Ensure predictions are integers for mapping
-        #     preds = preds.astype(int)
-        #     # Map each prediction to its class name
-        #     class_names = [class_labels[pred] for pred in preds]
-        #     return class_names
-        # else:
-        #     # Fallback to numerical values if no class_labels mapping exists
-        #     le = dataset['label_encoder']
-        #     return le.inverse_transform(preds)
 
     def generate_counterfactual(self, model, dataset, instance, method="foiltrees"):
         """Generate counterfactual explanation"""
