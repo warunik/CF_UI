@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
+import re
 
 import numpy as np
+
+from .llm import ConstraintGenerationError, LLMConstraintGenerator
 
 
 @dataclass
@@ -31,8 +35,53 @@ class FeasibilityModule:
     plausible values observed in the training corpus.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, generator: Optional[LLMConstraintGenerator] = None) -> None:
         self.feature_constraints = self._build_default_constraints()
+        self._generator = generator
+
+    def ensure_constraints(
+        self,
+        dataset: str,
+        metadata: Optional[Dict[str, Any]],
+        force: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Ensure that feasibility constraints exist for ``dataset``."""
+
+        key = dataset.lower()
+
+        if not force and key in self.feature_constraints:
+            return self.feature_constraints[key]
+
+        if metadata is None and not force:
+            return self.feature_constraints.get(key)
+
+        payload: Optional[Dict[str, Any]] = None
+        generator = self._generator or LLMConstraintGenerator()
+        self._generator = generator
+
+        if metadata is not None:
+            try:
+                payload = generator.build(metadata)
+            except ConstraintGenerationError:
+                payload = None
+
+        normalized = self._normalize_generated_constraints(payload)
+        if normalized:
+            existing = self.feature_constraints.get(key)
+            merged = self._merge_constraints(existing, normalized)
+            merged["source"] = "llm"
+            self.feature_constraints[key] = merged
+            return self.feature_constraints[key]
+
+        fallback = self._fallback_constraints(metadata)
+        if fallback:
+            existing = self.feature_constraints.get(key)
+            merged = self._merge_constraints(existing, fallback)
+            merged["source"] = "data"
+            self.feature_constraints[key] = merged
+            return self.feature_constraints[key]
+
+        return self.feature_constraints.get(key)
 
     # ------------------------------------------------------------------
     # Public API
@@ -64,7 +113,7 @@ class FeasibilityModule:
             the predicted class label from the ML model.
         """
 
-        constraints = self.feature_constraints.get(dataset.lower())
+        constraints = self.ensure_constraints(dataset, metadata=None)
         final_instance = dict(original_instance)
         sanitized_changes: List[Dict[str, Any]] = []
         adjustments: List[str] = []
@@ -241,6 +290,182 @@ class FeasibilityModule:
     # ------------------------------------------------------------------
     # Utility helpers
     # ------------------------------------------------------------------
+    def _normalize_generated_constraints(
+        self, payload: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        if not payload:
+            return None
+
+        immutable = set()
+        partially: Dict[str, Any] = {}
+        realistic: Dict[str, Any] = {}
+
+        for feature in payload.get("immutable", []) or []:
+            immutable.add(self._normalize_feature(str(feature)))
+
+        for collection_key in ("partially_immutable", "categorical_limits"):
+            for feature, value in (payload.get(collection_key) or {}).items():
+                parsed = self._parse_constraint_value(value)
+                if parsed is not None:
+                    partially[self._normalize_feature(str(feature))] = parsed
+
+        for feature, value in (payload.get("realistic_ranges") or {}).items():
+            parsed = self._parse_constraint_value(value)
+            if parsed is not None:
+                realistic[self._normalize_feature(str(feature))] = parsed
+
+        if not any([immutable, partially, realistic]):
+            return None
+
+        return {
+            "immutable": immutable,
+            "partially_immutable": partially,
+            "realistic_ranges": realistic,
+        }
+
+    @staticmethod
+    def _merge_constraints(
+        base: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        merged = {
+            "immutable": set(),
+            "partially_immutable": {},
+            "realistic_ranges": {},
+        }
+
+        if base:
+            merged["immutable"] = set(base.get("immutable", set()))
+            merged["partially_immutable"] = dict(base.get("partially_immutable", {}))
+            merged["realistic_ranges"] = dict(base.get("realistic_ranges", {}))
+
+        if new:
+            if new.get("immutable"):
+                merged["immutable"].update(new["immutable"])
+            if new.get("partially_immutable"):
+                merged["partially_immutable"].update(new["partially_immutable"])
+            if new.get("realistic_ranges"):
+                merged["realistic_ranges"].update(new["realistic_ranges"])
+            if "source" in new:
+                merged["source"] = new["source"]
+
+        return merged
+
+    def _parse_constraint_value(self, value: Any) -> Optional[Any]:
+        if value is None:
+            return None
+
+        if isinstance(value, dict):
+            if "min" in value or "max" in value:
+                bounds = (
+                    self._ensure_numeric(value.get("min")),
+                    self._ensure_numeric(value.get("max")),
+                )
+                return bounds if any(v is not None for v in bounds) else None
+            if "range" in value:
+                return self._parse_constraint_value(value["range"])
+            if "categories" in value:
+                categories = [item for item in value["categories"] if item is not None]
+                return categories or None
+            if "values" in value:
+                values = [item for item in value["values"] if item is not None]
+                return values or None
+
+        if isinstance(value, (list, tuple)):
+            if len(value) >= 2 and all(self._ensure_numeric(v) is not None for v in value[:2]):
+                bounds = (
+                    self._ensure_numeric(value[0]),
+                    self._ensure_numeric(value[1]),
+                )
+                return bounds if any(v is not None for v in bounds) else None
+            cleaned = [item for item in value if item is not None]
+            return cleaned or None
+
+        if isinstance(value, (int, float, np.integer, np.floating)):
+            numeric = self._ensure_numeric(value)
+            if numeric is None:
+                return None
+            return (numeric, numeric)
+
+        if isinstance(value, str):
+            range_tuple = self._parse_range_string(value)
+            if range_tuple is not None:
+                return range_tuple
+            parts = [item.strip() for item in value.split(",") if item.strip()]
+            if len(parts) > 1:
+                return parts
+
+        return None
+
+    @staticmethod
+    def _parse_range_string(text: str) -> Optional[Tuple[Optional[float], Optional[float]]]:
+        range_match = re.match(r"\s*(?P<low>-?\d+\.?\d*)\s*[-–]\s*(?P<high>-?\d+\.?\d*)\s*", text)
+        if range_match:
+            low = range_match.group("low")
+            high = range_match.group("high")
+            bounds = (
+                FeasibilityModule._ensure_numeric(low),
+                FeasibilityModule._ensure_numeric(high),
+            )
+            return bounds if any(v is not None for v in bounds) else None
+
+        ge_match = re.match(r"\s*(>=|>\=)\s*(-?\d+\.?\d*)\s*", text)
+        if ge_match:
+            value = FeasibilityModule._ensure_numeric(ge_match.group(2))
+            return (value, None) if value is not None else None
+
+        le_match = re.match(r"\s*(<=|<\=)\s*(-?\d+\.?\d*)\s*", text)
+        if le_match:
+            value = FeasibilityModule._ensure_numeric(le_match.group(2))
+            return (None, value) if value is not None else None
+
+        return None
+
+    def _fallback_constraints(self, metadata: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not metadata:
+            return None
+
+        summaries = metadata.get("feature_summaries") or []
+        if not summaries:
+            return None
+
+        realistic: Dict[str, Tuple[Optional[float], Optional[float]]] = {}
+        partially: Dict[str, Any] = {}
+        immutables: Set[str] = set()
+
+        for summary in summaries:
+            feature_name = self._normalize_feature(str(summary.get("name", "")))
+            if not feature_name:
+                continue
+
+            feature_type = str(summary.get("type", "")).lower()
+            if feature_type == "numeric":
+                lower = self._ensure_numeric(summary.get("p05"))
+                upper = self._ensure_numeric(summary.get("p95"))
+                if lower is None:
+                    lower = self._ensure_numeric(summary.get("min"))
+                if upper is None:
+                    upper = self._ensure_numeric(summary.get("max"))
+                if lower is not None or upper is not None:
+                    realistic[feature_name] = (lower, upper)
+            else:
+                top_values = summary.get("top_values") or []
+                unique_count = summary.get("unique_count")
+                if top_values and unique_count and unique_count <= 8:
+                    partially[feature_name] = list(dict.fromkeys(top_values))
+
+            hint = summary.get("immutability_hint")
+            if hint:
+                immutables.add(feature_name)
+
+        if not any([immutables, partially, realistic]):
+            return None
+
+        return {
+            "immutable": immutables,
+            "partially_immutable": partially,
+            "realistic_ranges": realistic,
+        }
+
     @staticmethod
     def _normalize_feature(name: str) -> str:
         return "".join(ch for ch in name.lower() if ch.isalnum())
@@ -271,9 +496,12 @@ class FeasibilityModule:
         if value is None:
             return None
         try:
-            return float(value)
+            numeric = float(value)
         except (TypeError, ValueError):
             return None
+        if np.isnan(numeric):
+            return None
+        return numeric
 
     @staticmethod
     def _coerce_like(reference: Any, value: Any) -> Any:

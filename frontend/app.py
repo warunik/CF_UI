@@ -95,6 +95,15 @@ def start_session():
             "dataset_choice": dataset_choice
         }
 
+        try:
+            model_manager.prepare_feasibility(dataset_choice)
+        except Exception as prep_error:
+            app.logger.warning(
+                "Failed to pre-compute feasibility constraints for %s: %s",
+                dataset_choice,
+                prep_error,
+            )
+
         return get_next_question(session_id)
     
     except Exception as e:
