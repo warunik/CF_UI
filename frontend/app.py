@@ -188,19 +188,30 @@ def generate_final_results(session_id):
         
         try:
             # Use the actual counterfactual generation method
-            cf_explanation = model_manager.generate_counterfactual(
+            cf_result = model_manager.generate_counterfactual(
                 model=model_choice,
                 dataset=dataset_name,
                 instance=user_data_dict,
-                method=cf_method_choice
+                method=cf_method_choice,
+                original_prediction=original_prediction,
             )
 
-            new_prediction = 1 - original_prediction
-                
-                
+            cf_explanation = cf_result.get("changes", []) if cf_result else []
+            new_prediction = cf_result.get("final_prediction", original_prediction) if cf_result else original_prediction
+            feasibility_report = cf_result.get("report") if cf_result else ""
+            feasibility_details = {
+                "feasible": cf_result.get("feasible"),
+                "valid_counterfactual": cf_result.get("valid_counterfactual"),
+                "adjustments": cf_result.get("adjustments", []),
+                "violations": cf_result.get("violations", []),
+            } if cf_result else {}
+
         except Exception as e:
             app.logger.error(f"Counterfactual generation failed: {str(e)}")
-            # No fallback - leave required_changes as empty list
+            cf_explanation = []
+            new_prediction = original_prediction
+            feasibility_report = "Counterfactual generation failed."
+            feasibility_details = {}
         
         # Create counterfactual result
         counterfactual_result = {
@@ -223,7 +234,7 @@ def generate_final_results(session_id):
         dataset_config = session["dataset_config"]
 
         original_label = dataset_config['class_labels'].get(original_prediction, f"Class {original_prediction}")
-        new_label = dataset_config['class_labels'].get(new_prediction, f"Class {new_prediction}")
+        new_label = dataset_config['class_labels'].get(int(new_prediction), f"Class {new_prediction}")
         explanation = explanation_chain.invoke({    
             "dataset_name": dataset_config.get("name", dataset_name),
             "original_prediction": original_prediction,
@@ -243,7 +254,9 @@ def generate_final_results(session_id):
             "original_prediction_label": original_label,
             "new_prediction_label": new_label,
             "required_changes": serializable_changes,
-            "explanation": explanation.strip()
+            "explanation": explanation.strip(),
+            "feasibility_report": feasibility_report,
+            "feasibility_details": convert_numpy_types(feasibility_details)
         }
 
         return jsonify(response_data)

@@ -12,6 +12,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
 from counterfactuals.foil_trees.rules import Operator
+from feasibility.module import FeasibilityModule
 
 class ModelManager:
     def __init__(self, datasets_config=None, models_dir="models"):
@@ -22,6 +23,7 @@ class ModelManager:
         self.models_dir = Path(models_dir)
         self.models_dir.mkdir(exist_ok=True)
         self.imputers = {}
+        self.feasibility_module = FeasibilityModule()
 
     def _model_path(self, dataset_name, model_type):
         return self.models_dir / f"{dataset_name}_{model_type}.pkl"
@@ -232,8 +234,15 @@ class ModelManager:
         config = self.datasets_config[dataset_name]
         return preds
 
-    def generate_counterfactual(self, model, dataset, instance, method="foiltrees"):
-        """Generate counterfactual explanation"""
+    def generate_counterfactual(
+        self,
+        model,
+        dataset,
+        instance,
+        method="foiltrees",
+        original_prediction=None,
+    ):
+        """Generate and refine a counterfactual explanation."""
         # 1. Load your processed dataset info
         data_config = self.load_dataset(dataset)
         feature_names = data_config['feature_names']      # <-- the actual columns used by your model
@@ -253,14 +262,45 @@ class ModelManager:
         
         if method == "foiltrees":
             dm = domain_mappers.DomainMapperTabular(
-            train_data=self.get_X_train(dataset_name=dataset),
-            feature_names=feature_names,
-            contrast_names=class_labels
+                train_data=self.get_X_train(dataset_name=dataset),
+                feature_names=feature_names,
+                contrast_names=class_labels
             )
 
             exp = contrastive_explanation.ContrastiveExplanation(dm)
+            raw_changes = exp.explain_instance_domain(model_.predict_proba, input_array)
 
-            return exp.explain_instance_domain(model_.predict_proba, input_array)
+            if original_prediction is None:
+                original_prediction = int(
+                    self.predict(
+                        dataset_name=dataset,
+                        model_type=model,
+                        input_data=instance,
+                    )[0]
+                )
+
+            predict_fn = lambda candidate: int(
+                self.predict(
+                    dataset_name=dataset,
+                    model_type=model,
+                    input_data=candidate,
+                )[0]
+            )
+
+            if raw_changes is None:
+                raw_changes_list = []
+            elif isinstance(raw_changes, list):
+                raw_changes_list = raw_changes
+            else:
+                raw_changes_list = list(raw_changes)
+
+            return self.feasibility_module.enforce(
+                dataset=dataset,
+                original_instance=instance,
+                original_prediction=original_prediction,
+                raw_changes=raw_changes_list,
+                predict_fn=predict_fn,
+            )
 
         raise ValueError(f"Unsupported CF method: {method}")
 
