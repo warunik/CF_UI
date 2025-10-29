@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const userDataDiv = document.getElementById('user-data');
     const counterfactualChangesDiv = document.getElementById('counterfactual-changes');
     const explanationDiv = document.getElementById('explanation');
+    const feasibilityStatus = document.getElementById('feasibility-status');
+    const feasibilityReport = document.getElementById('feasibility-report');
     const restartBtn = document.getElementById('restart-btn');
     const loadingDiv = document.getElementById('loading');
     
@@ -212,7 +214,68 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             counterfactualChangesDiv.innerHTML = '<p>No specific changes required.</p>';
         }
-        
+
+        // Display feasibility information
+        if (feasibilityStatus && feasibilityReport) {
+            const details = data.feasibility_details || {};
+            const hasDetails = Object.keys(details).length > 0;
+
+            if (hasDetails) {
+                const feasible = details.feasible === undefined ? null : details.feasible;
+                const validCounterfactual = details.valid_counterfactual;
+                let badgeClass = 'feasibility-badge ';
+                let statusText = 'Feasibility evaluation available';
+
+                if (feasible === true) {
+                    if (validCounterfactual === false) {
+                        badgeClass += 'badge-warning';
+                        statusText = 'Feasible but prediction unchanged';
+                    } else {
+                        badgeClass += 'badge-success';
+                        statusText = 'Feasible and actionable';
+                    }
+                } else if (feasible === false) {
+                    badgeClass += 'badge-warning';
+                    statusText = 'Feasibility constraints violated';
+                } else {
+                    badgeClass += 'badge-muted';
+                }
+
+                feasibilityStatus.className = badgeClass;
+                feasibilityStatus.textContent = statusText;
+
+                let reportHtml = '';
+                if (data.feasibility_report) {
+                    reportHtml += `<p>${data.feasibility_report.replace(/\n/g, '<br>')}</p>`;
+                }
+
+                if (details.adjustments && details.adjustments.length) {
+                    reportHtml += '<div class="feasibility-list"><strong>Adjustments</strong><ul>';
+                    details.adjustments.forEach(item => {
+                        reportHtml += `<li>${item}</li>`;
+                    });
+                    reportHtml += '</ul></div>';
+                }
+
+                if (details.violations && details.violations.length) {
+                    reportHtml += '<div class="feasibility-list"><strong>Violations</strong><ul>';
+                    details.violations.forEach(item => {
+                        reportHtml += `<li>${item}</li>`;
+                    });
+                    reportHtml += '</ul></div>';
+                }
+
+                feasibilityReport.innerHTML = reportHtml || '<p>No additional feasibility notes.</p>';
+            } else {
+                feasibilityStatus.className = 'feasibility-badge badge-muted';
+                feasibilityStatus.textContent = 'Feasibility data unavailable';
+                const fallbackText = data.feasibility_report
+                    ? data.feasibility_report.replace(/\n/g, '<br>')
+                    : 'No feasibility notes provided.';
+                feasibilityReport.innerHTML = `<p>${fallbackText}</p>`;
+            }
+        }
+
         // Display explanation
         explanationDiv.innerHTML = `<p>${data.explanation.replace(/\n/g, '<br>')}</p>`;
     }
