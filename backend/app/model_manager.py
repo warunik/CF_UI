@@ -265,38 +265,38 @@ class ModelManager:
         raise ValueError(f"Unsupported CF method: {method}")
 
 
-# if __name__ == "__main__":
-#     from config import DATASETS
-#     import numpy as np
+if __name__ == "__main__":
+    from config import DATASETS
+    import numpy as np
 
-#     # Create an instance of ModelManager
-#     manager = ModelManager(datasets_config=DATASETS)
+    # Create an instance of ModelManager
+    manager = ModelManager(datasets_config=DATASETS)
 
-#     input_data = {
-#         "Pregnancies": 3,
-#         "Glucose": 110,
-#         "BloodPressure": 92,
-#         "SkinThickness": 0,
-#         "Insulin": 2,
-#         "BMI": 34,
-#         "DiabetesPedigreeFunction": 0.191,
-#         "Age": 40,
-#     }
+    input_data = {
+        "Pregnancies": 3,
+        "Glucose": 110,
+        "BloodPressure": 92,
+        "SkinThickness": 0,
+        "Insulin": 2,
+        "BMI": 34,
+        "DiabetesPedigreeFunction": 0.191,
+        "Age": 40,
+    }
 
-#     # Call the method through the manager instance
-#     cf = manager.generate_counterfactual(
-#         model="random_forest",  
-#         dataset="diabetes",
-#         instance=input_data,  
-#         method="foiltrees"
-#     )
+    # Call the method through the manager instance
+    cf = manager.generate_counterfactual(
+        model="random_forest",  
+        dataset="diabetes",
+        instance=input_data,  
+        method="foiltrees"
+    )
 
-#     serializable_changes = []
-#     for change in cf:
-#         modified_change = change.copy()
-#         if 'operator' in modified_change and isinstance(modified_change['operator'], Operator):
-#             modified_change['operator'] = modified_change['operator'].value
-#         serializable_changes.append(modified_change)
+    serializable_changes = []
+    for change in cf:
+        modified_change = change.copy()
+        if 'operator' in modified_change and isinstance(modified_change['operator'], Operator):
+            modified_change['operator'] = modified_change['operator'].value
+        serializable_changes.append(modified_change)
 
-#     print("\nCounterfactual Explanation:\n", cf, "\n")
-#     print("Serializable Changes:\n", serializable_changes, "\n")
+    print("\nCounterfactual Explanation:\n", cf, "\n")
+    print("Serializable Changes:\n", serializable_changes, "\n")

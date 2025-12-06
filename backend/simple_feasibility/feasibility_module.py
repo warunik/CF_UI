@@ -1,5 +1,5 @@
 HEART_CONSTRAINTS = {
-    'age': lambda orig, new: new > orig,
+    'age': lambda orig, new: new >= orig,
     'sex': lambda orig, new: orig == new,
     'cp': lambda orig, new: new >= 0 and new <= 3,
     'trestbps': lambda orig, new: new >= 90 and new <= 200,
@@ -13,16 +13,7 @@ HEART_CONSTRAINTS = {
 }
 
 def check_feasibility(original, counterfactual):
-    """
-    Checks if a counterfactual is feasible based on predefined constraints
-    
-    Args:
-        original (dict): Original instance with feature values
-        counterfactual (dict): Proposed counterfactual with feature values
-    
-    Returns:
-        tuple: (bool, list) indicating overall feasibility and list of violated constraints
-    """
+
     violations = []
     
     for feature, constraint in HEART_CONSTRAINTS.items():
@@ -50,7 +41,7 @@ original_patient = {
 }
 
 counterfactual_patient = {
-    'age': 50,          # VIOLATION (must be greater than original)
+    'age': 50,          # VIOLATION (must be greater than or equal to original)
     'sex': 0,           # VIOLATION (must match original)
     'cp': 2,            # Valid
     'trestbps': 85,     # VIOLATION (below 90)
@@ -63,7 +54,18 @@ counterfactual_patient = {
     'thal': 7           # VIOLATION (above 3)
 }
 
+print("\n-----------------------------------------------------\n")
+
 feasible, violations = check_feasibility(original_patient, counterfactual_patient)
 
 print(f"Overall feasible: {feasible}")
 print(f"Violations: {violations}")
+
+print("\n-----------------------------------------------------\n")
+
+feasible, violations = check_feasibility(original_patient, original_patient)
+
+print(f"Overall feasible: {feasible}")
+print(f"Violations: {violations}")
+
+print("\n-----------------------------------------------------\n")

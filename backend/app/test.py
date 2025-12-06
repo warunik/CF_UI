@@ -7,7 +7,7 @@ from model_manager import ModelManager
 from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
 import numpy as np
 
-name_data = "diabetes"
+name_data = "adult"
 name_model = "random_forest"
 
 # Initialize
@@ -15,15 +15,22 @@ model_manager = ModelManager(datasets_config=DATASETS)
 
 # Sample input for "heart" dataset
 input_data = {
-    "Pregnancies": 1,
-    "Glucose": 189,
-    "BloodPressure": 60,
-    "SkinThickness": 23,
-    "Insulin": 846,
-    "BMI": 30.1,
-    "DiabetesPedigreeFunction": 0.398,
-    "Age": 50,
+    "age": 39,
+    "workclass": "State-gov",
+    "fnlwgt": 77516,
+    "education": "Bachelors",
+    "education-num": 13,
+    "marital-status": "Never-married",
+    "occupation": "Adm-clerical",
+    "relationship": "Not-in-family",
+    "race": "White",
+    "sex": "Male",
+    "capital-gain": 2174,
+    "capital-loss": 0,
+    "hours-per-week": 40,
+    "native-country": "United-States"
 }
+
 
 feature_names = list(DATASETS[name_data]["feature_types"].keys())
 input_array = np.array([input_data[feature] for feature in feature_names])

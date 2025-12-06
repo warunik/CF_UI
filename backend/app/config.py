@@ -60,7 +60,7 @@ DATASETS = {
             "native-country": "categorical"
         }
     },
-    "bank": {
+    "Wine": {
         "name": "Credit Approval",
         "path": "backend/data/bank.csv",
         "target_column": "give_credit",
@@ -78,7 +78,25 @@ DATASETS = {
             "dependents": "numeric"
         }
     },
-    "compas": {
+    "Iris": {
+        "name": "Credit Approval",
+        "path": "backend/data/bank.csv",
+        "target_column": "give_credit",
+        "class_labels": {0: "Deny Credit", 1: "Approve Credit"},
+        "feature_types": {
+            "revolving": "numeric",
+            "age": "numeric",
+            "nbr_30_59_days_past_due_not_worse": "numeric",
+            "debt_ratio": "numeric",
+            "monthly_income": "numeric",
+            "nbr_open_credits_and_loans": "numeric",
+            "nbr_90_days_late": "numeric",
+            "nbr_real_estate_loans_or_lines": "numeric",
+            "nbr_60_89_days_past_due_not_worse": "numeric",
+            "dependents": "numeric"
+        }
+    },
+    "Breast Cancer": {
         "name": "Recidivism Prediction",
         "path": "backend/data/compas.csv",
         "target_column": "is_recid",
@@ -150,7 +168,7 @@ DATASETS = {
             "two_year_recid": "binary"
         }
     },
-    "german": {
+    "German Credit Risk": {
         "name": "German Credit Risk",
         "path": "backend/data/german_credit.csv",
         "target_column": "default",
@@ -181,19 +199,20 @@ DATASETS = {
 }
 
 ML_MODELS = {
-    "mlp": "Multi-layer Perceptron",
-    "random_forest": "Random Forest",
     "logistic_regression": "Logistic Regression",
-    "xgboost": "XGBoost",
     "decision_tree": "Decision Tree",
+    "MLP": "Multi-layer Perceptron",
+    "random_forest": "Random Forest",
+    "gradient boosting": "Gradient Boosting",
+    "xgboost": "XGBoost", 
 }
 
 CF_METHODS = {
-    "dice": "DiCE (Diverse Counterfactual Explanations)",
-    "wachter": "Wachter's Method",
-    "cem": "CEM (Contrastive Explanation Method)",
-    "face": "FACE (Feasible and Actionable Counterfactual Explanations)",
-    "FOCUS": "FOCUS (Feature-wise Counterfactual Explanations)",
-    "CCHVAE": "CCHVAE (Counterfactual Explanations with Variational Autoencoders)",
     "foiltrees": "Foil Trees",
+    "shap - c": "DiCE (Diverse Counterfactual Explanations)",
+    "lime - c": "Wachter's Method",
+    "lore": "CEM (Contrastive Explanation Method)",
+    "clear": "FACE (Feasible and Actionable Counterfactual Explanations)",
+    "cem": "FOCUS (Feature-wise Counterfactual Explanations)",
+    
 }

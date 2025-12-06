@@ -205,6 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 changeItem.className = 'change-item';
                 changeItem.innerHTML = `
                     <span>${change.feature}:</span>
+                    
                     <span class="change-value"> ${change.new}</span>
                 `;
                 counterfactualChangesDiv.appendChild(changeItem);

@@ -6,19 +6,24 @@ model = OllamaLLM(model="llama3.2")
 def create_data_collection_chain():
     template = """
     You are helping collect data for a {dataset_name} prediction system.
-    
+
     Current progress: {collected_count} out of {total_features} features collected.
-    
+
     Next feature to collect: {next_feature}
-    
-    Create a simple, clear question to ask the user for the value of "{next_feature}".
-    
-    Instructions:
-    - Ask only for the specific feature mentioned
-    - Keep the question short and easy to understand
-    - Do not ask for multiple values at once
-    - Make the question conversational and friendly
-    
+
+    Ask the user for the value of "{next_feature}".
+
+    Rules:
+    - Ask ONLY the question - no introductions or commentary
+    - Be direct and conversational
+    - Add a brief explanation (under 15 words) ONLY for these technical features: BMI, pedigree function, insulin level, glucose tolerance
+    - For simple features like age, gender, pregnancies - ask directly with no explanation
+
+    Examples:
+    - "What is your age?"
+    - "What is your BMI? (weight divided by height squared)"
+    - "What is your pedigree function? (measures diabetes family history)"
+
     Question:
     """
     
@@ -27,28 +32,35 @@ def create_data_collection_chain():
 
 def create_explanation_chain():
     template = """
-    You are providing a medical explanation based on the following information:
+    You are explaining a health prediction result to someone in simple, everyday language.
 
-    Dataset: {dataset_name}
-    Original Prediction: {original_prediction} ({original_class})
-    Alternative Prediction: {new_prediction} ({new_class})
-    Confidence Level: {confidence}
+    Current situation:
+    - Dataset: {dataset_name}
+    - Your current prediction: {original_prediction} ({original_class})
+    - What it could change to: {new_prediction} ({new_class})
+    - How certain we are: {confidence}
 
-    Changes needed to get different outcome:
-    {changes}
+    What needs to change: {changes}
+    Your current information: {user_data_str}
 
-    User's current data:
-    {user_data_str}
+    Write a friendly, easy-to-understand explanation that:
 
-    Please provide a clear, simple explanation that:
-    1. Explains what the current prediction means
-    2. Describes what changes would lead to a different outcome
-    3. Explains why these changes matter
-    4. Uses simple, non-technical language
-    5. Is supportive and informative
+    1. Start by clearly stating: "Based on your information, you are currently predicted to be [X]"
+    2. Then say: "However, you could potentially change this to [Y] by making these adjustments:"
+    3. ONLY mention the specific changes listed in {changes} - do not suggest any additional changes
+    4. For each change in {changes}, explain in everyday language WHY this change would help
+    5. Use simple terms (say "blood sugar" not "glucose")
+    6. Be encouraging and supportive
+    7. Write like you're talking to a friend
 
-    Keep the explanation concise but helpful.
-    
+    IMPORTANT RESTRICTIONS:
+    - Only discuss the changes explicitly provided in {changes}
+    - Do not add extra suggestions or recommendations
+    - Do not mention other health factors unless they are in {changes}
+    - Stick strictly to what's given - no creative additions
+
+    Write as if you're having a caring conversation, but only about the specific changes provided.
+
     Explanation:
     """
     

@@ -1,20 +1,20 @@
 :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-tertiary: #334155;
-            --bg-card: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
+            --bg-primary: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --bg-tertiary: #e2e8f0;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
             --primary: #6366f1;
             --primary-light: #818cf8;
             --secondary: #0ea5e9;
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --border: #334155;
-            --border-light: #475569;
-            --shadow: rgba(2, 6, 23, 0.5);
-            --progress-bg: #334155;
+            --border: #e2e8f0;
+            --border-light: #cbd5e1;
+            --shadow: rgba(15, 23, 42, 0.1);
+            --progress-bg: #e2e8f0;
             --card-radius: 12px;
             --transition: all 0.3s ease;
         }
@@ -48,6 +48,7 @@
             box-shadow: 0 10px 25px var(--shadow);
             position: relative;
             overflow: hidden;
+            color: white;
         }
 
         header::before {
@@ -57,7 +58,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: radial-gradient(circle at top right, rgba(255,255,255,0.1) 0%, transparent 30%);
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.2) 0%, transparent 30%);
             pointer-events: none;
         }
 
@@ -67,6 +68,7 @@
             margin-bottom: 0.5rem;
             position: relative;
             z-index: 2;
+            color: white;
         }
 
         h2 {
@@ -84,6 +86,7 @@
             margin: 0 auto;
             position: relative;
             z-index: 2;
+            color: white;
         }
 
         .card {
@@ -98,13 +101,13 @@
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 12px 35px var(--shadow);
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.15);
         }
 
         .card-header {
             padding: 1.5rem;
             border-bottom: 1px solid var(--border);
-            background: rgba(30, 41, 59, 0.7);
+            background: var(--bg-secondary);
             backdrop-filter: blur(10px);
         }
 
@@ -150,7 +153,7 @@
         select, input {
             width: 100%;
             padding: 0.9rem 1rem;
-            background: var(--bg-tertiary);
+            background: var(--bg-primary);
             border: 1px solid var(--border-light);
             border-radius: 8px;
             color: var(--text-primary);
@@ -161,11 +164,12 @@
         select:focus, input:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: white;
         }
 
         select option {
-            background: var(--bg-secondary);
+            background: var(--bg-card);
             color: var(--text-primary);
         }
 
@@ -188,7 +192,7 @@
         .btn:hover {
             background: var(--primary-light);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.2);
         }
 
         .btn:disabled {
@@ -206,7 +210,7 @@
         }
 
         .btn-outline:hover {
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(99, 102, 241, 0.05);
         }
 
         .btn-success {
@@ -246,7 +250,7 @@
         }
 
         .question-container {
-            background: rgba(30, 41, 59, 0.7);
+            background: var(--bg-secondary);
             padding: 1.5rem;
             border-radius: 10px;
             margin-bottom: 1.5rem;
@@ -260,7 +264,7 @@
             display: flex;
             align-items: flex-start;
             gap: 0.75rem;
-            color: var(--primary-light);
+            color: var(--primary);
         }
 
         .question-alert i {
@@ -271,7 +275,7 @@
         .form-control {
             width: 100%;
             padding: 0.9rem 1rem;
-            background: var(--bg-tertiary);
+            background: var(--bg-primary);
             border: 1px solid var(--border-light);
             border-radius: 8px;
             color: var(--text-primary);
@@ -282,7 +286,8 @@
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: white;
         }
 
         .form-text {
@@ -305,7 +310,7 @@
         }
 
         .result-section {
-            background: var(--bg-tertiary);
+            background: var(--bg-secondary);
             color: var(--text-primary);
             padding: 1.5rem;
             border-radius: 10px;
@@ -313,7 +318,7 @@
         }
 
         .result-section h3 {
-            color: var(--primary-light);
+            color: var(--primary);
             margin-bottom: 1.5rem;
             font-size: 1.25rem;
             display: flex;
@@ -327,7 +332,7 @@
         }
 
         .explanation-box h3 {
-            color: var(--primary-light);
+            color: var(--primary);
             font-size: 1.25rem;
             display: flex;
             align-items: center;
@@ -340,11 +345,12 @@
         }
 
         .prediction-card {
-            background: var(--bg-tertiary);
+            background: var(--bg-card);
             border-radius: 10px;
             padding: 1.75rem;
             border: 1px solid var(--border);
             transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
         }
 
         .prediction-card p {
@@ -353,7 +359,7 @@
 
         .prediction-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 5px 15px var(--shadow);
+            box-shadow: 0 5px 15px rgba(15, 23, 42, 0.12);
         }
 
         .prediction-header {
@@ -374,12 +380,12 @@
         }
 
         .original-icon {
-            background: rgba(239, 68, 68, 0.15);
+            background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
         }
 
         .counterfactual-icon {
-            background: rgba(34, 197, 94, 0.15);
+            background: rgba(34, 197, 94, 0.1);
             color: var(--success);
         }
 
@@ -420,7 +426,7 @@
         .spinner {
             width: 4rem;
             height: 4rem;
-            border: 5px solid rgba(99, 102, 241, 0.2);
+            border: 5px solid rgba(99, 102, 241, 0.1);
             border-top: 5px solid var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -438,16 +444,17 @@
 
         .feature-value {
             font-weight: 600;
-            color: var(--primary-light);
+            color: var(--primary);
         }
 
         .alert {
-            background: var(--bg-tertiary);
+            background: var(--bg-card);
             color: var(--text-primary);
             padding: 1.5rem;
             border-radius: 10px;
             border: 1px solid var(--border);
             line-height: 1.7;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
         }
 
         .text-center {
