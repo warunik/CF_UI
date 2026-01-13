@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pickle
 import numpy as np
 import pandas as pd
+from pandas.api import types as ptypes
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
@@ -12,6 +13,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from counterfactuals.foil_trees import domain_mappers, contrastive_explanation
 from counterfactuals.foil_trees.rules import Operator
+from feasibility.module import FeasibilityModule
 
 class ModelManager:
     def __init__(self, datasets_config=None, models_dir="models"):
@@ -22,6 +24,7 @@ class ModelManager:
         self.models_dir = Path(models_dir)
         self.models_dir.mkdir(exist_ok=True)
         self.imputers = {}
+        self.feasibility_module = FeasibilityModule()
 
     def _model_path(self, dataset_name, model_type):
         return self.models_dir / f"{dataset_name}_{model_type}.pkl"
@@ -43,10 +46,10 @@ class ModelManager:
     def load_dataset(self, dataset_name):
         if dataset_name in self.datasets:
             return self.datasets[dataset_name]
-        
+
         config = self.datasets_config[dataset_name]
         df = pd.read_csv(config['path'])
-        
+
         # Handle feature removal
         if 'drop_columns' in config:
             cols_to_drop = [col for col in config['drop_columns'] if col in df.columns]
@@ -60,7 +63,13 @@ class ModelManager:
         y = le.fit_transform(df[config['target_column']])
         
         # Separate features
-        X = df.drop(columns=[config['target_column']])
+        feature_df = df.drop(columns=[config['target_column']])
+        feature_metadata = self._build_feature_metadata(
+            dataset_name,
+            feature_df,
+            config,
+        )
+        X = feature_df
         
         # Identify categorical columns
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -85,10 +94,89 @@ class ModelManager:
             'feature_names': feature_names,
             'label_encoder': le,  # Store for inverse transforms
             'categorical_cols': categorical_cols,  # Store original categorical columns
-            'base_columns': list(df.drop(columns=[config['target_column']]).columns)
+            'base_columns': list(feature_df.columns),
+            'feature_metadata': feature_metadata,
         }
         self.datasets[dataset_name] = dataset
+        self.feasibility_module.ensure_constraints(dataset_name, feature_metadata, force=True)
         return dataset
+
+    def prepare_feasibility(self, dataset_name: str):
+        """Eagerly load dataset metadata so LLM constraints are available."""
+
+        dataset = self.load_dataset(dataset_name)
+        return dataset.get('feature_metadata')
+
+    def _build_feature_metadata(self, dataset_name, feature_df, config):
+        feature_types = config.get('feature_types', {})
+        summaries = []
+
+        for column in feature_df.columns:
+            series = feature_df[column]
+            declared_type = feature_types.get(column, None)
+            inferred_numeric = ptypes.is_numeric_dtype(series)
+            summary = {
+                'name': column,
+                'type': declared_type or ('numeric' if inferred_numeric else 'categorical'),
+                'missing_pct': self._safe_float(series.isna().mean() * 100.0),
+                'unique_count': int(series.nunique(dropna=True)),
+            }
+
+            if inferred_numeric:
+                numeric_series = pd.to_numeric(series, errors='coerce')
+                summary.update({
+                    'type': 'numeric',
+                    'min': self._safe_float(numeric_series.min()),
+                    'max': self._safe_float(numeric_series.max()),
+                    'median': self._safe_float(numeric_series.median()),
+                    'p05': self._safe_float(numeric_series.quantile(0.05)),
+                    'p95': self._safe_float(numeric_series.quantile(0.95)),
+                })
+            else:
+                value_counts = series.dropna().astype(str).value_counts().head(5)
+                summary.update({
+                    'type': declared_type or 'categorical',
+                    'top_values': value_counts.index.tolist(),
+                })
+
+            hint = self._immutability_hint(column, summary['type'])
+            if hint:
+                summary['immutability_hint'] = hint
+
+            summaries.append(summary)
+
+        return {
+            'dataset_name': dataset_name,
+            'row_count': int(len(feature_df)),
+            'feature_summaries': summaries,
+        }
+
+    @staticmethod
+    def _safe_float(value):
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if np.isnan(numeric):
+            return None
+        return numeric
+
+    @staticmethod
+    def _immutability_hint(column_name: str, feature_type: str):
+        name = column_name.lower()
+        demographic_terms = {
+            'age', 'sex', 'gender', 'race', 'ethnicity', 'nationality', 'country',
+            'citizenship', 'marital', 'birth', 'id', 'identifier'
+        }
+        if any(term in name for term in demographic_terms):
+            if feature_type == 'numeric' and 'age' in name:
+                return 'demographic age'
+            if 'id' in name or 'identifier' in name:
+                return 'identifier'
+            return 'demographic attribute'
+        return None
 
     def get_model(self, dataset_name, model_type):
         key = (dataset_name, model_type)
@@ -232,8 +320,15 @@ class ModelManager:
         config = self.datasets_config[dataset_name]
         return preds
 
-    def generate_counterfactual(self, model, dataset, instance, method="foiltrees"):
-        """Generate counterfactual explanation"""
+    def generate_counterfactual(
+        self,
+        model,
+        dataset,
+        instance,
+        method="foiltrees",
+        original_prediction=None,
+    ):
+        """Generate and refine a counterfactual explanation."""
         # 1. Load your processed dataset info
         data_config = self.load_dataset(dataset)
         feature_names = data_config['feature_names']      # <-- the actual columns used by your model
@@ -253,14 +348,45 @@ class ModelManager:
         
         if method == "foiltrees":
             dm = domain_mappers.DomainMapperTabular(
-            train_data=self.get_X_train(dataset_name=dataset),
-            feature_names=feature_names,
-            contrast_names=class_labels
+                train_data=self.get_X_train(dataset_name=dataset),
+                feature_names=feature_names,
+                contrast_names=class_labels
             )
 
             exp = contrastive_explanation.ContrastiveExplanation(dm)
+            raw_changes = exp.explain_instance_domain(model_.predict_proba, input_array)
 
-            return exp.explain_instance_domain(model_.predict_proba, input_array)
+            if original_prediction is None:
+                original_prediction = int(
+                    self.predict(
+                        dataset_name=dataset,
+                        model_type=model,
+                        input_data=instance,
+                    )[0]
+                )
+
+            predict_fn = lambda candidate: int(
+                self.predict(
+                    dataset_name=dataset,
+                    model_type=model,
+                    input_data=candidate,
+                )[0]
+            )
+
+            if raw_changes is None:
+                raw_changes_list = []
+            elif isinstance(raw_changes, list):
+                raw_changes_list = raw_changes
+            else:
+                raw_changes_list = list(raw_changes)
+
+            return self.feasibility_module.enforce(
+                dataset=dataset,
+                original_instance=instance,
+                original_prediction=original_prediction,
+                raw_changes=raw_changes_list,
+                predict_fn=predict_fn,
+            )
 
         raise ValueError(f"Unsupported CF method: {method}")
 
